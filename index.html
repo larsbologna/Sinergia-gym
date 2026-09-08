@@ -112,7 +112,7 @@
   }
   .eyebrow::before{content:"";width:26px;height:1px;background:var(--forge);display:inline-block;}
   h1,h2,h3{font-family:'Montserrat',sans-serif;text-transform:uppercase;line-height:.92;font-weight:800;}
-  h2{font-size:clamp(2.4rem,6vw,5.2rem);letter-spacing:.01em;}
+  h2{font-size:clamp(1.9rem,7vw,5.2rem);letter-spacing:.01em;overflow-wrap:break-word;word-break:break-word;}
   p{color:var(--off-dim);font-size:1.02rem;line-height:1.6;max-width:52ch;}
   a{color:inherit;}
   .btn{
@@ -2052,6 +2052,7 @@ async function handleRegistro(event){
     await window.fb.setDoc(window.fb.doc(window.fb.db, 'users', cred.user.uid), {
       role: 'alumno', name: nombre, email: email, createdAt: new Date().toISOString()
     });
+    justSignedUp = true;
     // el resto (entrar como alumno) lo maneja onAuthStateChanged
   }catch(err){
     errorEl.textContent = mapAuthError(err.code);
@@ -2073,6 +2074,7 @@ function mapAuthError(code){
 }
 
 let pendingOnboardingUser = null;
+let justSignedUp = false; // true solo durante el registro recién hecho, no en aperturas posteriores
 
 function showOnboardingForm(){
   document.getElementById('formLogin').classList.remove('active');
@@ -2089,6 +2091,7 @@ async function handleCancelOnboarding(){
   if(!confirmar) return;
   try{ await window.fb.signOut(window.fb.auth); }catch(err){ console.error('Error cerrando sesión (se continúa igual):', err); }
   pendingOnboardingUser = null;
+  justSignedUp = false;
   document.getElementById('formOnboarding').classList.remove('active');
   document.getElementById('tabLogin').style.display = '';
   document.getElementById('tabRegistro').style.display = '';
@@ -2345,9 +2348,17 @@ function initAuthListener(){
 
     if(role === 'alumno'){
       if(!data || !data.profileCompleted){
-        pendingOnboardingUser = user;
+        if(justSignedUp){
+          pendingOnboardingUser = user;
+          document.getElementById('pwaLoading').style.display = 'none';
+          showOnboardingForm();
+          return;
+        }
+        // Sesión vieja de un registro que quedó a mitad de camino: la cerramos
+        // en silencio para no forzar el onboarding en cada apertura de la app.
+        try{ await window.fb.signOut(window.fb.auth); }catch(err){ console.error('Error cerrando sesión incompleta:', err); }
         document.getElementById('pwaLoading').style.display = 'none';
-        showOnboardingForm();
+        if(esAppInstalada) openGate();
         return;
       }
       currentStudentReal = normalizeStudentData(user.uid, data);
@@ -2958,11 +2969,40 @@ function renderAeDropdownPanel(){
       <span style="cursor:pointer;font-size:.9rem;" onclick="event.stopPropagation();handleEditGrupoMuscular('${g.replace(/'/g,"\\'")}')" title="Editar grupo muscular">✏️</span>
     </div>
     ${grupos[g].map(e => `
-      <div style="padding:10px 16px;cursor:pointer;" onmouseover="this.style.background='rgba(255,255,255,.06)'" onmouseout="this.style.background='transparent'" onclick="selectAeExercise('${e.id}','${e.name.replace(/'/g,"\\'")}')">${e.name}</div>
+      <div style="display:flex;justify-content:space-between;align-items:center;padding:10px 16px;cursor:pointer;" onmouseover="this.style.background='rgba(255,255,255,.06)'" onmouseout="this.style.background='transparent'">
+        <span style="flex:1;" onclick="selectAeExercise('${e.id}','${e.name.replace(/'/g,"\\'")}')">${e.name}</span>
+        <span style="display:flex;gap:8px;flex-shrink:0;">
+          <span style="cursor:pointer;font-size:.85rem;" onclick="event.stopPropagation();handleEditEjercicioBanco('${e.id}')" title="Editar ejercicio">✏️</span>
+          <span style="cursor:pointer;font-size:.85rem;" onclick="event.stopPropagation();handleDeleteEjercicioBanco('${e.id}')" title="Eliminar ejercicio">🗑</span>
+        </span>
+      </div>
     `).join('')}
   `).join('') + `
     <div style="padding:10px 16px;cursor:pointer;font-weight:600;color:var(--forge);border-top:1px solid rgba(242,237,228,.12);" onclick="selectAeExercise('__nuevo__','+ Cargar ejercicio nuevo...')">+ Cargar ejercicio nuevo...</div>
   `;
+}
+async function handleEditEjercicioBanco(id){
+  const ex = EXERCISE_BANK.find(e => e.id === id);
+  if(!ex) return;
+  const nuevoNombre = prompt('Nombre del ejercicio:', ex.name);
+  if(nuevoNombre === null || !nuevoNombre.trim()) return; // canceló o dejó vacío
+  const nuevoGrupo = prompt('Grupo muscular:', ex.group || 'Otros');
+  if(nuevoGrupo === null) return;
+  ex.name = nuevoNombre.trim();
+  ex.group = nuevoGrupo.trim() || 'Otros';
+  await saveExerciseBank();
+  renderAeDropdownPanel();
+  renderEditEjerciciosGrid();
+}
+async function handleDeleteEjercicioBanco(id){
+  const ex = EXERCISE_BANK.find(e => e.id === id);
+  if(!ex) return;
+  const confirmar = confirm(`¿Eliminar "${ex.name}" del banco de ejercicios? Esto no borra el ejercicio de las rutinas donde ya esté cargado, solo deja de aparecer para agregarlo de nuevo.`);
+  if(!confirmar) return;
+  EXERCISE_BANK = EXERCISE_BANK.filter(e => e.id !== id);
+  await saveExerciseBank();
+  renderAeDropdownPanel();
+  renderEditEjerciciosGrid();
 }
 function selectAeExercise(id, label){
   document.getElementById('aeSelectedId').value = id;

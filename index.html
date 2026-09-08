@@ -841,16 +841,6 @@
     <div class="hb-bottom-bar"></div>
   </section>
 
-  <!-- STATS -->
-  <section id="stats">
-    <div class="stats-row">
-      <div class="stat reveal"><h3 data-count="500" data-suffix="+">0</h3><span>Alumnos activos</span></div>
-      <div class="stat reveal"><h3 data-count="10" data-suffix="+">0</h3><span>Entrenadores</span></div>
-      <div class="stat reveal"><h3 data-count="8" data-suffix="">0</h3><span>Años de trayectoria</span></div>
-      <div class="stat reveal"><h3 data-count="24" data-suffix="/7">0</h3><span>Acceso al club</span></div>
-    </div>
-  </section>
-
   <!-- ENTRENAMIENTOS -->
   <section id="entrenamientos">
     <div class="section-head reveal">
@@ -2381,6 +2371,8 @@ function goToPublicSite(){
   document.getElementById('appwrap').classList.remove('active');
   document.getElementById('gate').classList.remove('active');
   document.getElementById('publicSite').style.display = '';
+  const modalSuelto = document.getElementById('historialMesModalDinamico');
+  if(modalSuelto) modalSuelto.remove();
   window.scrollTo(0,0);
 }
 
@@ -2452,6 +2444,10 @@ function closeAppMenu(){
 }
 
 function showView(id, fromPopstate){
+  // Blindaje: sea cual sea el estado previo, al navegar dentro del panel siempre
+  // se asegura que el panel esté visible y el sitio público oculto.
+  document.getElementById('publicSite').style.display = 'none';
+  document.getElementById('appwrap').classList.add('active');
   document.querySelectorAll('.app-view').forEach(v=>v.classList.remove('active'));
   document.getElementById('view-'+id).classList.add('active');
   document.querySelectorAll('.nav-link').forEach(n=>n.classList.remove('active'));

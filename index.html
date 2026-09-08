@@ -954,7 +954,7 @@
   <section id="resultados">
     <div class="section-head reveal">
       <span class="eyebrow">Transformaciones</span>
-      <h2>Tu transformación<br>comienza acá.</h2>
+      <h2>Tu transformación comienza acá.</h2>
     </div>
     <div class="results-grid">
       <div class="result-card reveal">
@@ -1113,6 +1113,9 @@
         </div>
         <div class="auth-error" id="obError"></div>
         <button type="submit" class="btn-auth" id="obBtn">Guardar y entrar</button>
+        <p style="font-size:.78rem;color:var(--off-dim);text-align:center;margin-top:14px;">
+          ¿Ya tenés cuenta o te equivocaste? <span style="color:var(--forge);cursor:pointer;font-weight:600;" onclick="handleCancelOnboarding()">Volver a iniciar sesión</span>
+        </p>
       </form>
     </div>
   </div>
@@ -2079,6 +2082,17 @@ function showOnboardingForm(){
   document.getElementById('formOnboarding').classList.add('active');
   document.getElementById('gate').classList.add('active');
   document.getElementById('publicSite').style.display = 'none';
+}
+
+async function handleCancelOnboarding(){
+  const confirmar = confirm('Esto va a cerrar la cuenta que estabas completando (podés volver a entrar con ella cuando quieras). ¿Continuar?');
+  if(!confirmar) return;
+  try{ await window.fb.signOut(window.fb.auth); }catch(err){ console.error('Error cerrando sesión (se continúa igual):', err); }
+  pendingOnboardingUser = null;
+  document.getElementById('formOnboarding').classList.remove('active');
+  document.getElementById('tabLogin').style.display = '';
+  document.getElementById('tabRegistro').style.display = '';
+  switchAuthTab('login');
 }
 
 async function handleOnboarding(event){

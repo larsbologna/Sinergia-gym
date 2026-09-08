@@ -2,7 +2,7 @@
 <html lang="es">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover, maximum-scale=1.0">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover, ">
 <title>Sinergia | Centro de Entrenamiento</title>
 <link rel="manifest" href="manifest.json">
 <meta name="theme-color" content="#0049CD">
@@ -477,9 +477,9 @@
   .btn-auth{background:var(--forge);color:var(--black);border:none;border-radius:8px;padding:12px;font-weight:600;font-size:.88rem;cursor:pointer;}
   .btn-auth:hover{opacity:.9;}
   .btn-auth:disabled{opacity:.5;cursor:not-allowed;}
-  .modal-overlay{display:none;position:fixed;inset:0;background:rgba(10,9,8,.75);z-index:200;align-items:center;justify-content:center;}
+  .modal-overlay{display:none;position:fixed;inset:0;background:rgba(10,9,8,.75);z-index:400;align-items:center;justify-content:center;}
   .modal-overlay.active{display:flex;}
-  .modal-box{background:var(--carbon);border:1px solid rgba(242,237,228,.14);border-radius:14px;padding:26px;width:100%;max-width:420px;max-height:88vh;overflow-y:auto;}
+  .modal-box{z-index:401;background:var(--carbon);border:1px solid rgba(242,237,228,.14);border-radius:14px;padding:26px;width:100%;max-width:420px;max-height:88vh;overflow-y:auto;}
   .modal-box label{font-size:.76rem;color:var(--off-dim);margin-bottom:5px;display:block;}
   .modal-box input, .modal-box select{width:100%;background:var(--black);border:1px solid rgba(242,237,228,.16);border-radius:8px;padding:10px 12px;color:var(--off);font-family:'Inter',sans-serif;font-size:.88rem;margin-bottom:12px;}
 
@@ -2371,8 +2371,7 @@ function goToPublicSite(){
   document.getElementById('appwrap').classList.remove('active');
   document.getElementById('gate').classList.remove('active');
   document.getElementById('publicSite').style.display = '';
-  const modalSuelto = document.getElementById('historialMesModalDinamico');
-  if(modalSuelto) modalSuelto.remove();
+  limpiarModalHistorialSuelto();
   window.scrollTo(0,0);
 }
 
@@ -2422,9 +2421,15 @@ function enterApp(role){
   }
 }
 
+function limpiarModalHistorialSuelto(){
+  const modalSuelto = document.getElementById('historialMesModalDinamico');
+  if(modalSuelto) modalSuelto.remove();
+}
+
 function logout(){
   document.getElementById('appwrap').classList.remove('active');
   document.getElementById('publicSite').style.display = '';
+  limpiarModalHistorialSuelto();
   window.scrollTo(0,0);
   currentRole = null;
   currentStudentReal = null;
@@ -2448,6 +2453,7 @@ function showView(id, fromPopstate){
   // se asegura que el panel esté visible y el sitio público oculto.
   document.getElementById('publicSite').style.display = 'none';
   document.getElementById('appwrap').classList.add('active');
+  limpiarModalHistorialSuelto();
   document.querySelectorAll('.app-view').forEach(v=>v.classList.remove('active'));
   document.getElementById('view-'+id).classList.add('active');
   document.querySelectorAll('.nav-link').forEach(n=>n.classList.remove('active'));
@@ -4061,7 +4067,7 @@ function renderMiCuota(){
       </div>
       <div class="card"><h4>Planes disponibles</h4>
         <div class="grid grid-3" style="gap:12px;">
-          ${GYM_PLANS.map(p => `<div class="plan-mini ${s.plan===p.name?'featured':''}"><span class="eyebrow" style="margin-bottom:0">${p.name}</span><div class="price">${fmtMoney(p.price)}</div></div>`).join('')}
+          ${GYM_PLANS.map(p => `<div class="plan-mini ${s.plan===p.name?'featured':''}"><span class="eyebrow" style="margin-bottom:0">${p.name}</span><div class="price">${fmtMoney(p.price)}</div><div style="font-size:.72rem;color:#00d084;margin-top:4px;font-weight:600">$${(p.price - 2000).toLocaleString('es-AR')} en efectivo</div></div>`).join('')}
         </div>
       </div>
     </div>`;

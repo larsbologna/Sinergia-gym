@@ -1285,6 +1285,23 @@
           <div><label>Email</label><input type="email" id="asEmail" required></div>
           <div><label>Teléfono</label><input type="tel" id="asTel"></div>
           <div class="grid grid-2" style="gap:10px;">
+            <div><label>Edad</label><input type="number" id="asEdad" placeholder="Ej: 28"></div>
+            <div><label>Objetivo</label>
+              <select id="asObjetivo" style="width:100%;background:var(--carbon);border:1px solid rgba(242,237,228,.16);border-radius:8px;padding:11px 12px;color:var(--off);">
+                <option>Sin definir</option>
+                <option>Hipertrofia</option>
+                <option>Bajar de peso</option>
+                <option>Definición</option>
+                <option>Resistencia</option>
+                <option>Salud / Bienestar</option>
+              </select>
+            </div>
+          </div>
+          <div class="grid grid-2" style="gap:10px;">
+            <div><label>Peso (kg)</label><input type="number" id="asPeso" placeholder="Ej: 70"></div>
+            <div><label>Altura (cm)</label><input type="number" id="asAltura" placeholder="Ej: 175"></div>
+          </div>
+          <div class="grid grid-2" style="gap:10px;">
             <div><label>Plan</label>
               <select id="asPlan" style="width:100%;background:var(--carbon);border:1px solid rgba(242,237,228,.16);border-radius:8px;padding:11px 12px;color:var(--off);"></select>
             </div>
@@ -2376,28 +2393,33 @@ function initAuthListener(){
   }
 
   // ===== Acceso automático por QR/link (para alumnos que no manejan usuario/contraseña) =====
-  // El link que genera el admin trae "?al=" con el email y la contraseña codificados.
-  // Si está presente, iniciamos sesión solos, sin mostrar el login para nada.
-  const params = new URLSearchParams(location.search);
-  const autoLoginToken = params.get('al');
-  if(autoLoginToken){
-    // Sacamos el parámetro de la URL enseguida (no queremos que quede visible ni guardado en el historial).
+  function intentarAutoLoginPorLink(){
+    const params = new URLSearchParams(location.search);
+    const autoLoginToken = params.get('al');
+    if(!autoLoginToken) return false;
     history.replaceState({}, '', location.pathname);
     document.getElementById('publicSite').style.display = 'none';
-    document.getElementById('pwaLoading').style.display = 'flex';
+    const loader = document.getElementById('pwaLoading');
+    if(loader) loader.style.display = 'flex';
     try{
       const { e, p } = JSON.parse(atob(decodeURIComponent(autoLoginToken)));
-      window.fb.signInWithEmailAndPassword(window.fb.auth, e, p).catch(err => {
+      // Pequeño delay para asegurar que Firebase ya está listo
+      const hacerLogin = () => window.fb.signInWithEmailAndPassword(window.fb.auth, e, p).catch(err => {
         console.error('No se pudo entrar con el link automático:', err);
-        document.getElementById('pwaLoading').style.display = 'none';
+        if(loader) loader.style.display = 'none';
         openGate();
       });
+      if(window.fb && window.fb.auth){ hacerLogin(); } else { window.addEventListener('fbReady', hacerLogin, {once:true}); }
     }catch(err){
       console.error('Link de acceso inválido:', err);
-      document.getElementById('pwaLoading').style.display = 'none';
+      const loader = document.getElementById('pwaLoading');
+      if(loader) loader.style.display = 'none';
       openGate();
     }
+    return true;
   }
+  // Intentar al cargar la página
+  intentarAutoLoginPorLink();
 
   window.fb.onAuthStateChanged(window.fb.auth, async (user) => {
     if(!user){
@@ -2782,14 +2804,19 @@ async function handleAddStudent(event){
       venc.setMonth(venc.getMonth() - 1);
       cuotaInicio = venc.toISOString();
     }
+    const edad = Number(document.getElementById('asEdad').value) || 0;
+    const peso = Number(document.getElementById('asPeso').value) || 0;
+    const altura = Number(document.getElementById('asAltura').value) || 0;
+    const objetivo = document.getElementById('asObjetivo').value || 'Sin definir';
     const profileData = {
       role: 'alumno', name: nombre, email, telefono,
       createdAt: new Date().toISOString(), profileCompleted: true,
-      goal: 'Sin definir', joinDate: new Date().toLocaleDateString('es-AR', {month:'2-digit', year:'numeric'}),
+      goal: objetivo, age: edad, weight: peso, height: altura,
+      joinDate: new Date().toLocaleDateString('es-AR', {month:'2-digit', year:'numeric'}),
       plan: planNombre || 'Sin asignar', amount: monto, cuotaInicio, membership: 'Activa',
-      completion: 0, routines: [], weightHistory: [0], workouts: 0, goalsReached: 0,
+      completion: 0, routines: [], weightHistory: peso ? [peso] : [0], workouts: 0, goalsReached: 0,
       caloriesTotal: 0, pagos: [], sessions: [], notifications: [],
-      accessPass: pass // guardado para poder reimprimir su QR de acceso si lo pierde (ver nota de seguridad)
+      accessPass: pass
     };
     await Promise.race([window.fb.setDoc(window.fb.doc(window.fb.db, 'users', uid), profileData), timeout]);
 

@@ -1331,14 +1331,16 @@
     <div class="modal-overlay" id="addRoutineModal">
       <div class="modal-box" style="max-width:640px;">
         <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px;">
-          <h3 style="margin:0;">Asignar rutina<span id="arNombreAlumnoTag" style="color:var(--off-dim);font-weight:400;"></span></h3>
+          <h3 style="margin:0;" id="rtTituloModal">Asignar rutina<span id="arNombreAlumnoTag" style="color:var(--off-dim);font-weight:400;"></span></h3>
           <span style="cursor:pointer;color:var(--off-dim);" onclick="cancelarAsignacionRutina()">✕</span>
         </div>
 
-        <label style="font-size:.76rem;color:var(--off-dim);display:block;margin-bottom:6px;">Plantilla</label>
-        <div id="rtPlantillasTabs" style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:16px;"></div>
+        <div id="rtSelectorPlantillaWrap">
+          <label style="font-size:.76rem;color:var(--off-dim);display:block;margin-bottom:6px;">Plantilla</label>
+          <select id="rtPlantillasTabs" onchange="seleccionarPlantilla(this.value === '__todas__' ? null : this.value)" style="width:100%;background:var(--carbon);border:1px solid rgba(242,237,228,.16);border-radius:8px;padding:11px 12px;color:var(--off);margin-bottom:16px;"></select>
+        </div>
 
-        <div class="grid grid-2" style="gap:10px;margin-bottom:16px;">
+        <div class="grid grid-2" style="gap:10px;margin-bottom:16px;" id="rtCamposAlumnoWrap">
           <div><label>Nombre de la rutina</label><input type="text" id="rtNombreRutina" placeholder="Ej: Full Body"></div>
           <div><label>Día de la semana</label>
             <select id="rtDia" style="width:100%;background:var(--carbon);border:1px solid rgba(242,237,228,.16);border-radius:8px;padding:11px 12px;color:var(--off);">
@@ -1359,8 +1361,7 @@
 
         <div class="auth-error" id="rtError"></div>
         <div style="display:flex;gap:10px;flex-wrap:wrap;border-top:1px solid rgba(242,237,228,.12);padding-top:16px;">
-          <button type="button" class="btn btn-solid btn-small" onclick="guardarRutinaAlumno()">Guardar rutina<span id="rtGuardarNombreTag"></span></button>
-          <button type="button" class="btn btn-ghost btn-small" onclick="crearNuevaPlantilla()">Guardar como nueva plantilla</button>
+          <button type="button" class="btn btn-solid btn-small" onclick="guardarRutinaAlumno()" id="rtBotonGuardar">Guardar rutina<span id="rtGuardarNombreTag"></span></button>
           <button type="button" class="btn btn-ghost btn-small" onclick="cancelarAsignacionRutina()">Cancelar</button>
         </div>
       </div>
@@ -1543,13 +1544,12 @@
         <button type="button" class="btn btn-solid btn-small" onclick="handleSaveExerciseBankConfig()" style="margin-left:10px;">Guardar banco</button>
       </div>
       <div class="card" style="margin-top:18px;">
-        <h4>Banco de rutinas</h4>
+        <h4>Plantillas de rutina</h4>
         <p style="font-size:.8rem;color:var(--off-dim);margin-bottom:14px;">
-          Nombres de rutina disponibles al crear una rutina nueva para un alumno (ej: Full body, Piernas, Espalda y bíceps).
+          Estas son las plantillas completas (con ejercicios, series, reps, descanso y peso) que aparecen al asignarle una rutina a cualquier alumno. Para editar los ejercicios de una plantilla, seleccionala desde "Asignar rutina" en el perfil de cualquier alumno — los cambios se ven acá y en todos lados al instante.
         </p>
-        <div id="editRutinasGrid" style="display:flex;flex-direction:column;gap:10px;margin-bottom:14px;"></div>
-        <button type="button" class="btn btn-ghost btn-small" onclick="handleAddRoutineBankItem()">+ Agregar rutina</button>
-        <button type="button" class="btn btn-solid btn-small" onclick="handleSaveRoutineBankConfig()" style="margin-left:10px;">Guardar banco</button>
+        <div id="configPlantillasGrid" style="display:flex;flex-direction:column;gap:8px;margin-bottom:14px;"></div>
+        <button type="button" class="btn btn-ghost btn-small" onclick="crearPlantillaVaciaDesdeConfig()">+ Nueva plantilla</button>
       </div>
     </section>
 
@@ -1757,32 +1757,20 @@ let EXERCISE_BANK = [
   { id:'ex-press-militar', name:'Press militar', group:'Hombros' },
   { id:'ex-plancha', name:'Plancha', group:'Core' },
 ];
+let EXERCISE_GROUPS_LIST = ['Piernas', 'Pecho', 'Espalda', 'Hombros', 'Core', 'Otros'];
+
 async function loadExerciseBank(){
   try{
     const snap = await window.fb.getDoc(window.fb.doc(window.fb.db, 'config', 'ejercicios'));
-    if(snap.exists() && Array.isArray(snap.data().banco) && snap.data().banco.length){
-      EXERCISE_BANK = snap.data().banco;
+    if(snap.exists()){
+      if(Array.isArray(snap.data().banco) && snap.data().banco.length) EXERCISE_BANK = snap.data().banco;
+      if(Array.isArray(snap.data().grupos) && snap.data().grupos.length) EXERCISE_GROUPS_LIST = snap.data().grupos;
     }
   }catch(err){ console.error('Error cargando banco de ejercicios:', err); }
 }
 async function saveExerciseBank(){
-  try{ await window.fb.setDoc(window.fb.doc(window.fb.db, 'config', 'ejercicios'), { banco: EXERCISE_BANK }); }
+  try{ await window.fb.setDoc(window.fb.doc(window.fb.db, 'config', 'ejercicios'), { banco: EXERCISE_BANK, grupos: EXERCISE_GROUPS_LIST }); }
   catch(err){ console.error('Error guardando banco de ejercicios:', err); }
-}
-
-// ===== BANCO DE RUTINAS DEL GIMNASIO =====
-let ROUTINE_BANK = ['Full body', 'Piernas', 'Espalda y bíceps', 'Pecho y tríceps', 'Hombros y core', 'Cardio / HIIT'];
-async function loadRoutineBank(){
-  try{
-    const snap = await window.fb.getDoc(window.fb.doc(window.fb.db, 'config', 'rutinas'));
-    if(snap.exists() && Array.isArray(snap.data().banco) && snap.data().banco.length){
-      ROUTINE_BANK = snap.data().banco;
-    }
-  }catch(err){ console.error('Error cargando banco de rutinas:', err); }
-}
-async function saveRoutineBank(){
-  try{ await window.fb.setDoc(window.fb.doc(window.fb.db, 'config', 'rutinas'), { banco: ROUTINE_BANK }); }
-  catch(err){ console.error('Error guardando banco de rutinas:', err); }
 }
 
 const NAMES = ['Martín Godoy','Rocío Paredes','Nahuel Suárez','Valentina Ríos','Camila Duarte','Sol Bianchi','Bruno Ferreyra','Agustina Molina','Tomás Ibáñez','Lucía Correa'];
@@ -2444,7 +2432,7 @@ function initAuthListener(){
     currentUser = user;
     await loadGymPlans();
     await loadExerciseBank();
-    await loadRoutineBank();
+    await loadRutinasPlantillas();
     populateAsPlanSelect();
     loadGymAlias();
     let role = 'alumno';
@@ -2641,45 +2629,72 @@ function renderConfigPagos(){
   renderPlanesDisponiblesConfig();
   renderEditPlanesGrid();
   renderEditEjerciciosGrid();
-  renderEditRutinasGrid();
+  renderConfigPlantillasGrid();
 }
 
-function renderEditRutinasGrid(){
-  const el = document.getElementById('editRutinasGrid');
-  if(!el) return;
-  el.innerHTML = ROUTINE_BANK.map((n,i) => `
-    <div style="display:flex;gap:8px;align-items:center;">
-      <input type="text" data-idx="${i}" value="${n}" placeholder="Nombre de la rutina" style="flex:1;background:var(--black);border:1px solid rgba(242,237,228,.16);border-radius:8px;padding:8px;color:var(--off);">
-      <span style="cursor:pointer;color:var(--off-dim);padding:6px;" onclick="handleRemoveRoutineBankItem(${i})">✕</span>
-    </div>
-  `).join('');
+function renderConfigPlantillasGrid(){
+  const cont = document.getElementById('configPlantillasGrid');
+  if(!cont) return;
+  const claves = Object.keys(RUTINAS_PLANTILLAS);
+  if(!claves.length){
+    cont.innerHTML = '<p style="font-size:.8rem;color:var(--off-dim);">Todavía no hay plantillas cargadas.</p>';
+    return;
+  }
+  cont.innerHTML = claves.map(k => {
+    const p = RUTINAS_PLANTILLAS[k];
+    return `
+      <div style="display:flex;justify-content:space-between;align-items:center;background:rgba(255,255,255,.04);border-radius:8px;padding:10px 14px;">
+        <div><strong style="font-size:.88rem;">${p.nombre}</strong><span style="font-size:.76rem;color:var(--off-dim);margin-left:8px;">${p.ejercicios.length} ejercicio${p.ejercicios.length===1?'':'s'}</span></div>
+        <div style="display:flex;gap:6px;">
+          <span class="btn btn-ghost btn-small" onclick="editarPlantillaDesdeConfig('${k}')">📝 Editar ejercicios</span>
+          <span class="btn btn-ghost btn-small" onclick="renombrarPlantillaDesdeConfig('${k}')">✏️ Renombrar</span>
+          <span class="btn btn-ghost btn-small" onclick="borrarPlantillaDesdeConfig('${k}')">🗑️ Borrar</span>
+        </div>
+      </div>`;
+  }).join('');
 }
-function handleAddRoutineBankItem(){
-  ROUTINE_BANK.push('Nueva rutina');
-  renderEditRutinasGrid();
+
+async function renombrarPlantillaDesdeConfig(key){
+  await renombrarPlantilla(key);
+  renderConfigPlantillasGrid();
 }
-function handleRemoveRoutineBankItem(i){
-  ROUTINE_BANK.splice(i, 1);
-  renderEditRutinasGrid();
+
+async function crearPlantillaVaciaDesdeConfig(){
+  await crearPlantillaVaciaSinAbrirModal();
+  renderConfigPlantillasGrid();
 }
-async function handleSaveRoutineBankConfig(){
-  const inputs = document.querySelectorAll('#editRutinasGrid input');
-  ROUTINE_BANK = Array.from(inputs).map(inp => inp.value.trim()).filter(Boolean);
-  await saveRoutineBank();
-  renderEditRutinasGrid();
-  showToast('✅ Banco de rutinas actualizado.', false);
+
+async function crearPlantillaVaciaSinAbrirModal(){
+  const nombre = prompt('Nombre de la nueva plantilla (ej: "Espalda y bíceps"):');
+  if(!nombre || !nombre.trim()) return;
+  const existente = Object.values(RUTINAS_PLANTILLAS).some(p => p.nombre.trim().toLowerCase() === nombre.trim().toLowerCase());
+  if(existente){ alert('Ya existe una plantilla con ese nombre.'); return; }
+  const key = 'custom_' + nombre.trim().toLowerCase().replace(/[^a-z0-9]+/g, '_').slice(0, 40) + '_' + Date.now();
+  RUTINAS_PLANTILLAS[key] = { nombre: nombre.trim(), ejercicios: [] };
+  await guardarPlantillasEnStorage();
+  alert('✅ Plantilla "' + nombre.trim() + '" creada. Para cargarle ejercicios, abrí "Asignar rutina" en el perfil de cualquier alumno y seleccionala.');
+}
+
+async function borrarPlantillaDesdeConfig(key){
+  await borrarPlantilla(key);
+  renderConfigPlantillasGrid();
 }
 
 function renderEditEjerciciosGrid(){
   const el = document.getElementById('editEjerciciosGrid');
   if(!el) return;
+  const grupos = getExerciseGroups();
   el.innerHTML = EXERCISE_BANK.map((e,i) => `
     <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;">
       <input type="text" data-idx="${i}" data-field="name" value="${e.name}" placeholder="Nombre del ejercicio" style="flex:2;min-width:140px;background:var(--black);border:1px solid rgba(242,237,228,.16);border-radius:8px;padding:8px;color:var(--off);">
-      <input type="text" data-idx="${i}" data-field="group" value="${e.group || ''}" placeholder="Grupo muscular" style="flex:1;min-width:120px;background:var(--black);border:1px solid rgba(242,237,228,.16);border-radius:8px;padding:8px;color:var(--off);">
+      <select data-idx="${i}" data-field="group" style="flex:1;min-width:120px;background:var(--black);border:1px solid rgba(242,237,228,.16);border-radius:8px;padding:8px;color:var(--off);">
+        ${grupos.map(g => `<option value="${g}" ${((e.group||'Otros')===g)?'selected':''}>${g}</option>`).join('')}
+      </select>
       <span style="cursor:pointer;color:var(--off-dim);padding:6px;" onclick="handleRemoveExerciseBankItem(${i})">✕</span>
     </div>
-  `).join('');
+  `).join('') + `
+    <button type="button" class="btn btn-ghost btn-small" style="align-self:flex-start;margin-top:4px;" onclick="agregarGrupoMuscularNuevo()">+ Agregar grupo muscular</button>
+  `;
 }
 function handleAddExerciseBankItem(){
   EXERCISE_BANK.push({ id: 'ex-nuevo-' + Date.now(), name: 'Nuevo ejercicio', group: 'Otros' });
@@ -2690,8 +2705,8 @@ function handleRemoveExerciseBankItem(i){
   renderEditEjerciciosGrid();
 }
 async function handleSaveExerciseBankConfig(){
-  const inputs = document.querySelectorAll('#editEjerciciosGrid input');
-  inputs.forEach(inp => {
+  const campos = document.querySelectorAll('#editEjerciciosGrid input, #editEjerciciosGrid select');
+  campos.forEach(inp => {
     const idx = Number(inp.dataset.idx);
     const field = inp.dataset.field;
     if(!EXERCISE_BANK[idx]) return;
@@ -3135,61 +3150,74 @@ let addRoutineCtx = null; // uid
 // ===== SISTEMA DE PLANTILLAS DE RUTINAS =====
 const RUTINAS_PLANTILLAS = {
   calistenia: { nombre: "Calistenia", ejercicios: [
-    { nombre:"Dominadas", series:"4", reps:"8-12", descanso:"90s" },
-    { nombre:"Fondos en paralelas", series:"4", reps:"10-15", descanso:"90s" },
-    { nombre:"Flexiones", series:"4", reps:"15-20", descanso:"60s" },
-    { nombre:"Sentadilla pistol asistida", series:"3", reps:"8 c/l", descanso:"60s" },
-    { nombre:"Plancha", series:"3", reps:"45s", descanso:"60s" }
+    { nombre:"Dominadas", series:"4", reps:"8-12", descanso:"90s", peso:"" },
+    { nombre:"Fondos en paralelas", series:"4", reps:"10-15", descanso:"90s", peso:"" },
+    { nombre:"Flexiones", series:"4", reps:"15-20", descanso:"60s", peso:"" },
+    { nombre:"Sentadilla pistol asistida", series:"3", reps:"8 c/l", descanso:"60s", peso:"" },
+    { nombre:"Plancha", series:"3", reps:"45s", descanso:"60s", peso:"" }
   ]},
   acond_fisico: { nombre: "Acond. Físico", ejercicios: [
-    { nombre:"Burpees", series:"4", reps:"15", descanso:"60s" },
-    { nombre:"Jumping Jacks", series:"4", reps:"40s", descanso:"45s" },
-    { nombre:"Mountain Climbers", series:"3", reps:"30s", descanso:"45s" },
-    { nombre:"Sentadilla con salto", series:"4", reps:"15", descanso:"60s" },
-    { nombre:"Abdominales bicicleta", series:"3", reps:"20", descanso:"45s" }
+    { nombre:"Burpees", series:"4", reps:"15", descanso:"60s", peso:"" },
+    { nombre:"Jumping Jacks", series:"4", reps:"40s", descanso:"45s", peso:"" },
+    { nombre:"Mountain Climbers", series:"3", reps:"30s", descanso:"45s", peso:"" },
+    { nombre:"Sentadilla con salto", series:"4", reps:"15", descanso:"60s", peso:"" },
+    { nombre:"Abdominales bicicleta", series:"3", reps:"20", descanso:"45s", peso:"" }
   ]},
   full_body: { nombre: "Full Body", ejercicios: [
-    { nombre:"Sentadilla con barra", series:"4", reps:"10", descanso:"90s" },
-    { nombre:"Press banca", series:"4", reps:"8-10", descanso:"90s" },
-    { nombre:"Peso muerto", series:"3", reps:"8", descanso:"120s" },
-    { nombre:"Remo con barra", series:"3", reps:"10", descanso:"90s" },
-    { nombre:"Press militar", series:"3", reps:"10", descanso:"90s" }
+    { nombre:"Sentadilla con barra", series:"4", reps:"10", descanso:"90s", peso:"20" },
+    { nombre:"Press banca", series:"4", reps:"8-10", descanso:"90s", peso:"15" },
+    { nombre:"Peso muerto", series:"3", reps:"8", descanso:"120s", peso:"30" },
+    { nombre:"Remo con barra", series:"3", reps:"10", descanso:"90s", peso:"15" },
+    { nombre:"Press militar", series:"3", reps:"10", descanso:"90s", peso:"10" }
   ]},
   hipertrofia_sup: { nombre: "Hipertrofia Superior", ejercicios: [
-    { nombre:"Press banca plano", series:"4", reps:"8-10", descanso:"90s" },
-    { nombre:"Remo con mancuerna", series:"4", reps:"10-12", descanso:"75s" },
-    { nombre:"Press militar mancuernas", series:"3", reps:"10", descanso:"75s" },
-    { nombre:"Jalón al pecho", series:"3", reps:"12", descanso:"60s" },
-    { nombre:"Curl de bíceps", series:"3", reps:"12", descanso:"45s" },
-    { nombre:"Extensión de tríceps", series:"3", reps:"12", descanso:"45s" }
+    { nombre:"Press banca plano", series:"4", reps:"8-10", descanso:"90s", peso:"15" },
+    { nombre:"Remo con mancuerna", series:"4", reps:"10-12", descanso:"75s", peso:"12" },
+    { nombre:"Press militar mancuernas", series:"3", reps:"10", descanso:"75s", peso:"8" },
+    { nombre:"Jalón al pecho", series:"3", reps:"12", descanso:"60s", peso:"25" },
+    { nombre:"Curl de bíceps", series:"3", reps:"12", descanso:"45s", peso:"8" },
+    { nombre:"Extensión de tríceps", series:"3", reps:"12", descanso:"45s", peso:"8" }
   ]},
   piernas_gluteos: { nombre: "Piernas y Glúteos", ejercicios: [
-    { nombre:"Sentadilla profunda", series:"4", reps:"10-12", descanso:"90s" },
-    { nombre:"Peso muerto rumano", series:"4", reps:"10", descanso:"90s" },
-    { nombre:"Zancadas caminando", series:"3", reps:"12 c/l", descanso:"60s" },
-    { nombre:"Hip thrust", series:"4", reps:"12-15", descanso:"75s" },
-    { nombre:"Extensión de cuádriceps", series:"3", reps:"15", descanso:"45s" },
-    { nombre:"Curl femoral", series:"3", reps:"12", descanso:"45s" }
+    { nombre:"Sentadilla profunda", series:"4", reps:"10-12", descanso:"90s", peso:"20" },
+    { nombre:"Peso muerto rumano", series:"4", reps:"10", descanso:"90s", peso:"25" },
+    { nombre:"Zancadas caminando", series:"3", reps:"12 c/l", descanso:"60s", peso:"10" },
+    { nombre:"Hip thrust", series:"4", reps:"12-15", descanso:"75s", peso:"30" },
+    { nombre:"Extensión de cuádriceps", series:"3", reps:"15", descanso:"45s", peso:"15" },
+    { nombre:"Curl femoral", series:"3", reps:"12", descanso:"45s", peso:"12" }
   ]}
 };
-// Plantillas guardadas por el gimnasio (persisten en este navegador vía localStorage).
-try{
-  const guardadas = JSON.parse(localStorage.getItem('sinergia_plantillas_custom') || '{}');
-  Object.assign(RUTINAS_PLANTILLAS, guardadas);
-}catch(err){ console.error('No se pudieron leer las plantillas guardadas:', err); }
+
+async function loadRutinasPlantillas(){
+  try{
+    const snap = await window.fb.getDoc(window.fb.doc(window.fb.db, 'config', 'plantillas_rutina'));
+    if(snap.exists() && snap.data().plantillas){
+      Object.keys(RUTINAS_PLANTILLAS).forEach(k => delete RUTINAS_PLANTILLAS[k]);
+      Object.assign(RUTINAS_PLANTILLAS, snap.data().plantillas);
+    }
+  }catch(err){ console.error('Error cargando las plantillas de rutina:', err); }
+}
 
 let rutinaTemporal = [];       // ejercicios de la rutina que se está armando
 let rutinaTemporalCambios = false; // para el confirm al cancelar
 let editandoIndexPlantilla = null; // índice en edición inline, o null
 
+let modoEdicionPlantilla = null; // key de la plantilla si estamos editándola desde Configuración, o null si es "asignar a alumno"
+
 function handleAddRoutine(uid){
   addRoutineCtx = uid;
+  modoEdicionPlantilla = null;
   const s = ALUMNOS_REALES.find(a => a.id === uid);
   rutinaTemporal = [];
   rutinaTemporalCambios = false;
   editandoIndexPlantilla = null;
+  plantillaSeleccionadaKey = null;
+  document.getElementById('rtTituloModal').childNodes[0].textContent = 'Asignar rutina';
   document.getElementById('arNombreAlumnoTag').textContent = s ? ' — ' + s.name : '';
   document.getElementById('rtGuardarNombreTag').textContent = s ? ' para ' + s.name : '';
+  document.getElementById('rtBotonGuardar').childNodes[0].textContent = 'Guardar rutina';
+  document.getElementById('rtSelectorPlantillaWrap').style.display = '';
+  document.getElementById('rtCamposAlumnoWrap').style.display = '';
   document.getElementById('rtNombreRutina').value = '';
   document.getElementById('rtDia').value = '';
   document.getElementById('rtError').textContent = '';
@@ -3199,28 +3227,82 @@ function handleAddRoutine(uid){
   document.getElementById('addRoutineModal').classList.add('active');
 }
 
+function editarPlantillaDesdeConfig(key){
+  const p = RUTINAS_PLANTILLAS[key];
+  if(!p) return;
+  addRoutineCtx = null;
+  modoEdicionPlantilla = key;
+  plantillaSeleccionadaKey = key;
+  rutinaTemporal = JSON.parse(JSON.stringify(p.ejercicios));
+  rutinaTemporalCambios = false;
+  editandoIndexPlantilla = null;
+  document.getElementById('rtTituloModal').childNodes[0].textContent = 'Editar plantilla: ' + p.nombre + ' ';
+  document.getElementById('arNombreAlumnoTag').textContent = '';
+  document.getElementById('rtBotonGuardar').childNodes[0].textContent = 'Guardar cambios en la plantilla';
+  document.getElementById('rtGuardarNombreTag').textContent = '';
+  // En este modo no hace falta elegir otra plantilla base ni asignar día/alumno: ya estamos editando ESTA plantilla.
+  document.getElementById('rtSelectorPlantillaWrap').style.display = 'none';
+  document.getElementById('rtCamposAlumnoWrap').style.display = 'none';
+  document.getElementById('rtError').textContent = '';
+  document.getElementById('rtBuscadorPanel').style.display = 'none';
+  renderListaEjerciciosPlantilla();
+  document.getElementById('addRoutineModal').classList.add('active');
+}
+
 function cancelarAsignacionRutina(){
   if(rutinaTemporalCambios){
-    const confirmar = confirm('Vas a perder los cambios de esta rutina sin guardar. ¿Cerrar igual?');
+    const confirmar = confirm('Vas a perder los cambios sin guardar. ¿Cerrar igual?');
     if(!confirmar) return;
   }
   document.getElementById('addRoutineModal').classList.remove('active');
   addRoutineCtx = null;
+  modoEdicionPlantilla = null;
   rutinaTemporal = [];
   rutinaTemporalCambios = false;
 }
 // Se mantiene por compatibilidad con código o botones viejos que la llamaran.
 function closeAddRoutineModal(){ cancelarAsignacionRutina(); }
 
+let plantillaSeleccionadaKey = null; // para saber cuál tab está activa (rename/borrado)
+
+async function guardarPlantillasEnStorage(){
+  try{
+    await window.fb.setDoc(window.fb.doc(window.fb.db, 'config', 'plantillas_rutina'), { plantillas: RUTINAS_PLANTILLAS });
+  }catch(err){ console.error('No se pudieron guardar las plantillas:', err); }
+}
+
 function renderPlantillasTabs(){
-  const cont = document.getElementById('rtPlantillasTabs');
+  const sel = document.getElementById('rtPlantillasTabs');
   const claves = Object.keys(RUTINAS_PLANTILLAS);
-  cont.innerHTML = `<span class="btn btn-ghost btn-small" onclick="seleccionarPlantilla(null)">Todas</span>` +
-    claves.map(k => `<span class="btn btn-ghost btn-small" onclick="seleccionarPlantilla('${k}')">${RUTINAS_PLANTILLAS[k].nombre}</span>`).join('') +
-    `<span class="btn btn-solid btn-small" onclick="crearNuevaPlantilla()">+ Crear plantilla</span>`;
+  sel.innerHTML = `<option value="__todas__">Elegí una plantilla (o "Todas" para armar desde cero)</option>` +
+    claves.map(k => `<option value="${k}" ${plantillaSeleccionadaKey===k?'selected':''}>${RUTINAS_PLANTILLAS[k].nombre}</option>`).join('');
+  if(plantillaSeleccionadaKey === null) sel.value = '__todas__';
+}
+
+async function renombrarPlantilla(key){
+  const plantilla = RUTINAS_PLANTILLAS[key];
+  if(!plantilla) return;
+  const nuevoNombre = prompt('Nuevo nombre de la plantilla:', plantilla.nombre);
+  if(!nuevoNombre || !nuevoNombre.trim()) return;
+  plantilla.nombre = nuevoNombre.trim();
+  if(plantillaSeleccionadaKey === key) document.getElementById('rtNombreRutina').value = plantilla.nombre;
+  await guardarPlantillasEnStorage();
+  renderPlantillasTabs();
+}
+
+async function borrarPlantilla(key){
+  const plantilla = RUTINAS_PLANTILLAS[key];
+  if(!plantilla) return;
+  const confirmar = confirm(`¿Borrar la plantilla "${plantilla.nombre}"? Esto no afecta rutinas ya asignadas a alumnos, solo la plantilla para usarla de nuevo.`);
+  if(!confirmar) return;
+  delete RUTINAS_PLANTILLAS[key];
+  if(plantillaSeleccionadaKey === key){ plantillaSeleccionadaKey = null; rutinaTemporal = []; renderListaEjerciciosPlantilla(); }
+  await guardarPlantillasEnStorage();
+  renderPlantillasTabs();
 }
 
 function seleccionarPlantilla(key){
+  plantillaSeleccionadaKey = key;
   if(key === null){
     // "Todas": arranca en blanco, para armar la rutina eligiendo ejercicios sueltos.
     rutinaTemporal = [];
@@ -3228,12 +3310,11 @@ function seleccionarPlantilla(key){
     const plantilla = RUTINAS_PLANTILLAS[key];
     if(!plantilla) return;
     rutinaTemporal = JSON.parse(JSON.stringify(plantilla.ejercicios));
-    if(!document.getElementById('rtNombreRutina').value.trim()){
-      document.getElementById('rtNombreRutina').value = plantilla.nombre;
-    }
+    document.getElementById('rtNombreRutina').value = plantilla.nombre; // se actualiza siempre al elegir una plantilla
   }
   rutinaTemporalCambios = true;
   editandoIndexPlantilla = null;
+  renderPlantillasTabs();
   renderListaEjerciciosPlantilla();
 }
 
@@ -3251,9 +3332,10 @@ function renderListaEjerciciosPlantilla(){
             <input type="text" id="rtEditNombre-${i}" value="${e.nombre}" placeholder="Nombre del ejercicio">
             <input type="text" id="rtEditSeries-${i}" value="${e.series}" placeholder="Series">
           </div>
-          <div class="grid grid-2" style="gap:8px;margin-bottom:10px;">
+          <div class="grid grid-3" style="gap:8px;margin-bottom:10px;">
             <input type="text" id="rtEditReps-${i}" value="${e.reps}" placeholder="Reps">
             <input type="text" id="rtEditDescanso-${i}" value="${e.descanso}" placeholder="Descanso">
+            <input type="text" id="rtEditPeso-${i}" value="${e.peso || ''}" placeholder="Peso (kg)">
           </div>
           <span class="btn btn-solid btn-small" onclick="guardarEdicionEjercicioPlantilla(${i})">💾 Guardar</span>
         </div>`;
@@ -3262,7 +3344,7 @@ function renderListaEjerciciosPlantilla(){
       <div class="card" style="padding:12px;display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap;">
         <div>
           <strong style="font-size:.9rem;">${e.nombre}</strong>
-          <p style="font-size:.78rem;color:var(--off-dim);margin-top:3px;">${e.series} series · ${e.reps} reps · descanso ${e.descanso}</p>
+          <p style="font-size:.78rem;color:var(--off-dim);margin-top:3px;">${e.series} series · ${e.reps} reps · descanso ${e.descanso}${e.peso ? ' · ' + e.peso + 'kg' : ''}</p>
         </div>
         <div style="display:flex;gap:6px;flex-shrink:0;">
           <span class="btn btn-ghost btn-small" onclick="editarEjercicioPlantilla(${i})">✏️ Editar</span>
@@ -3282,8 +3364,9 @@ function guardarEdicionEjercicioPlantilla(index){
   const series = document.getElementById('rtEditSeries-'+index).value.trim();
   const reps = document.getElementById('rtEditReps-'+index).value.trim();
   const descanso = document.getElementById('rtEditDescanso-'+index).value.trim();
+  const peso = document.getElementById('rtEditPeso-'+index).value.trim();
   if(!nombre){ alert('El ejercicio necesita un nombre.'); return; }
-  rutinaTemporal[index] = { nombre, series: series||'3', reps: reps||'10-12', descanso: descanso||'60s' };
+  rutinaTemporal[index] = { nombre, series: series||'3', reps: reps||'10-12', descanso: descanso||'60s', peso: peso || '' };
   rutinaTemporalCambios = true;
   editandoIndexPlantilla = null;
   renderListaEjerciciosPlantilla();
@@ -3301,7 +3384,7 @@ function borrarEjercicioPlantilla(index){
 }
 
 function agregarEjercicioAPlantilla(ejercicio){
-  rutinaTemporal.push(ejercicio);
+  rutinaTemporal.push(Object.assign({ peso:'' }, ejercicio));
   rutinaTemporalCambios = true;
   renderListaEjerciciosPlantilla();
 }
@@ -3324,7 +3407,7 @@ function renderBuscadorEjercicioPlantilla(){
         onclick='agregarEjercicioAPlantilla({nombre:${JSON.stringify(e.name)}, series:"3", reps:"10-12", descanso:"60s"}); document.getElementById("rtBuscadorPanel").style.display="none";'>
         ${e.name}
       </div>`).join('')}
-  `).join('') || '<p style="padding:12px;font-size:.8rem;color:var(--off-dim);">No hay ejercicios cargados en el banco todavía.</p>';
+  `).join('') || `<p style="padding:12px;font-size:.8rem;color:var(--off-dim);">No hay ejercicios cargados todavía. Agregalos desde Configuración → Banco de ejercicios.</p>`;
 }
 
 function parseDescansoASegundos(descanso){
@@ -3335,6 +3418,28 @@ function parseDescansoASegundos(descanso){
 async function guardarRutinaAlumno(){
   const errorEl = document.getElementById('rtError');
   errorEl.textContent = '';
+
+  // Modo "editar plantilla desde Configuración": no hay alumno, se guarda en la plantilla misma.
+  if(modoEdicionPlantilla){
+    if(!rutinaTemporal.length){ errorEl.textContent = 'Agregá al menos un ejercicio.'; return; }
+    const plantilla = RUTINAS_PLANTILLAS[modoEdicionPlantilla];
+    if(!plantilla){ errorEl.textContent = 'No se encontró la plantilla.'; return; }
+    plantilla.ejercicios = JSON.parse(JSON.stringify(rutinaTemporal));
+    try{
+      await guardarPlantillasEnStorage();
+      rutinaTemporal = [];
+      rutinaTemporalCambios = false;
+      modoEdicionPlantilla = null;
+      document.getElementById('addRoutineModal').classList.remove('active');
+      renderConfigPlantillasGrid();
+      showToast('✅ Plantilla "' + plantilla.nombre + '" actualizada.', false);
+    }catch(err){
+      errorEl.textContent = 'No se pudo guardar (' + (err.code || err.message) + ').';
+    }
+    return;
+  }
+
+  // Modo normal: asignar una rutina a un alumno.
   if(!addRoutineCtx) return;
   const nombre = document.getElementById('rtNombreRutina').value.trim();
   if(!nombre){ errorEl.textContent = 'Ponele un nombre a la rutina.'; return; }
@@ -3345,7 +3450,8 @@ async function guardarRutinaAlumno(){
   if(!s){ errorEl.textContent = 'No se encontró el alumno.'; return; }
 
   const ejerciciosGuardar = rutinaTemporal.map(e => ({
-    ex: e.nombre, sets: e.series, reps: e.reps, weight: null, lastWeight: null,
+    ex: e.nombre, sets: e.series, reps: e.reps,
+    weight: e.peso ? Number(e.peso) || e.peso : null, lastWeight: e.peso ? Number(e.peso) || e.peso : null,
     rest: parseDescansoASegundos(e.descanso), done: false, video: null
   }));
   const routines = s.routines ? [...s.routines] : [];
@@ -3360,21 +3466,6 @@ async function guardarRutinaAlumno(){
   }catch(err){
     errorEl.textContent = 'No se pudo guardar (' + (err.code || err.message) + ').';
   }
-}
-
-function crearNuevaPlantilla(){
-  if(!rutinaTemporal.length){ alert('Armá primero la lista de ejercicios para poder guardarla como plantilla.'); return; }
-  const nombre = prompt('Nombre de la nueva plantilla (ej: "Espalda y bíceps"):');
-  if(!nombre || !nombre.trim()) return;
-  const key = 'custom_' + nombre.trim().toLowerCase().replace(/[^a-z0-9]+/g, '_').slice(0, 40) + '_' + Date.now();
-  RUTINAS_PLANTILLAS[key] = { nombre: nombre.trim(), ejercicios: JSON.parse(JSON.stringify(rutinaTemporal)) };
-  try{
-    const guardadas = JSON.parse(localStorage.getItem('sinergia_plantillas_custom') || '{}');
-    guardadas[key] = RUTINAS_PLANTILLAS[key];
-    localStorage.setItem('sinergia_plantillas_custom', JSON.stringify(guardadas));
-  }catch(err){ console.error('No se pudo guardar la plantilla en este navegador:', err); }
-  renderPlantillasTabs();
-  alert('✅ Plantilla "' + nombre.trim() + '" guardada. Va a aparecer en la lista de plantillas la próxima vez.');
 }
 
 let addExerciseCtx = null; // { uid, ri }
@@ -3397,9 +3488,19 @@ function closeAddExerciseModal(){
   addExerciseCtx = null;
 }
 function getExerciseGroups(){
-  const grupos = new Set();
+  const grupos = new Set(EXERCISE_GROUPS_LIST);
   EXERCISE_BANK.forEach(e => grupos.add(e.group || 'Otros'));
   return Array.from(grupos);
+}
+
+async function agregarGrupoMuscularNuevo(){
+  const nombre = prompt('Nombre del nuevo grupo muscular (ej: "Antebrazo"):');
+  if(!nombre || !nombre.trim()) return;
+  const yaExiste = getExerciseGroups().some(g => g.toLowerCase() === nombre.trim().toLowerCase());
+  if(yaExiste){ alert('Ese grupo ya existe.'); return; }
+  EXERCISE_GROUPS_LIST.push(nombre.trim());
+  await saveExerciseBank();
+  renderEditEjerciciosGrid();
 }
 
 // ===== Desplegable propio de "Agregar ejercicio", con botón de editar por grupo muscular =====

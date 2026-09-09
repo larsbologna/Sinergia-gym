@@ -40,10 +40,22 @@
     const auth = getAuth(fbApp);
     const db = getFirestore(fbApp);
 
+    // App secundaria SOLO para que el admin pueda crear cuentas de alumnos sin
+    // que Firebase lo desloguee a él y lo cambie por la cuenta nueva (es un
+    // comportamiento normal de Firebase: crear un usuario inicia sesión con
+    // ese usuario en la app donde se lo crea).
+    const fbAppSecundaria = initializeApp(firebaseConfig, 'secundaria-crear-alumno');
+    const authSecundaria = getAuth(fbAppSecundaria);
+    async function crearAlumnoSinDesloguearAdmin(email, pass){
+      const cred = await createUserWithEmailAndPassword(authSecundaria, email, pass);
+      await authSecundaria.signOut(); // limpia la sesión de la app secundaria (no afecta al admin)
+      return cred.user.uid;
+    }
+
     // Puente hacia el script "normal" de más abajo, que no es un módulo
     // y por lo tanto no puede usar `import` directamente.
     window.fb = {
-      auth, db,
+      auth, db, crearAlumnoSinDesloguearAdmin,
       signInWithEmailAndPassword, createUserWithEmailAndPassword,
       onAuthStateChanged, signOut, updateProfile, updatePassword,
       EmailAuthProvider, reauthenticateWithCredential,
@@ -1265,10 +1277,10 @@
     <div class="modal-overlay" id="addStudentModal">
       <div class="modal-box">
         <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px;">
-          <h3 style="margin:0;">Agregar alumno</h3>
+          <h3 style="margin:0;" id="asModalTitle">Agregar alumno</h3>
           <span style="cursor:pointer;color:var(--off-dim);" onclick="closeAddStudentModal()">✕</span>
         </div>
-        <form class="auth-form active" onsubmit="return handleAddStudent(event)">
+        <form class="auth-form active" id="asForm" onsubmit="return handleAddStudent(event)">
           <div><label>Nombre y apellido</label><input type="text" id="asNombre" required></div>
           <div><label>Email</label><input type="email" id="asEmail" required></div>
           <div><label>Teléfono</label><input type="tel" id="asTel"></div>
@@ -1279,9 +1291,22 @@
             <div><label>Monto</label><input type="number" id="asMonto"></div>
           </div>
           <div><label>Próximo vencimiento</label><input type="date" id="asVenc"></div>
+          <div><label>Contraseña de acceso</label>
+            <div style="display:flex;gap:8px;">
+              <input type="text" id="asPass" style="flex:1;">
+              <span class="btn btn-ghost btn-small" onclick="document.getElementById('asPass').value = generarPasswordSimple();" title="Generar otra">🔁</span>
+            </div>
+            <p style="font-size:.74rem;color:var(--off-dim);margin-top:4px;">Se genera sola — no hace falta que el alumno la escriba ni la recuerde, va a entrar con el código QR.</p>
+          </div>
           <div class="auth-error" id="asError"></div>
-          <button type="submit" class="btn-auth">Guardar alumno</button>
+          <button type="submit" class="btn-auth" id="asBtn">Crear alumno</button>
         </form>
+        <div id="asResultado" style="display:none;text-align:center;">
+          <p style="font-size:.9rem;margin-bottom:16px;">✅ Cuenta creada. Este es su código de acceso — al escanearlo desde el celular del alumno, entra directo a su cuenta sin pedir usuario ni contraseña.</p>
+          <div id="asQrCanvas" style="display:flex;justify-content:center;margin-bottom:16px;"><canvas id="asQrCanvasEl"></canvas></div>
+          <p style="font-size:.78rem;color:var(--off-dim);margin-bottom:16px;">Recomendación: que el alumno, una vez adentro, guarde el acceso directo en la pantalla de inicio de su celular (así no necesita volver a escanear el QR cada vez).</p>
+          <button type="button" class="btn-auth" onclick="closeAddStudentModal()">Listo</button>
+        </div>
       </div>
     </div>
 
@@ -2210,7 +2235,8 @@ function normalizeStudentData(uid, data){
     workouts: data.workouts || 0, goalsReached: data.goalsReached || 0, frozen,
     caloriesTotal: data.caloriesTotal || 0,
     pagos: data.pagos || [], sessions: data.sessions || [], notifications: data.notifications || [],
-    lastSessionDate: data.lastSessionDate || null, routinesWeekStart: data.routinesWeekStart || null
+    lastSessionDate: data.lastSessionDate || null, routinesWeekStart: data.routinesWeekStart || null,
+    accessPass: data.accessPass || null
   };
 }
 
@@ -2336,6 +2362,30 @@ function initAuthListener(){
     document.getElementById('pwaLoading').style.display = 'flex';
   }
 
+  // ===== Acceso automático por QR/link (para alumnos que no manejan usuario/contraseña) =====
+  // El link que genera el admin trae "?al=" con el email y la contraseña codificados.
+  // Si está presente, iniciamos sesión solos, sin mostrar el login para nada.
+  const params = new URLSearchParams(location.search);
+  const autoLoginToken = params.get('al');
+  if(autoLoginToken){
+    // Sacamos el parámetro de la URL enseguida (no queremos que quede visible ni guardado en el historial).
+    history.replaceState({}, '', location.pathname);
+    document.getElementById('publicSite').style.display = 'none';
+    document.getElementById('pwaLoading').style.display = 'flex';
+    try{
+      const { e, p } = JSON.parse(atob(decodeURIComponent(autoLoginToken)));
+      window.fb.signInWithEmailAndPassword(window.fb.auth, e, p).catch(err => {
+        console.error('No se pudo entrar con el link automático:', err);
+        document.getElementById('pwaLoading').style.display = 'none';
+        openGate();
+      });
+    }catch(err){
+      console.error('Link de acceso inválido:', err);
+      document.getElementById('pwaLoading').style.display = 'none';
+      openGate();
+    }
+  }
+
   window.fb.onAuthStateChanged(window.fb.auth, async (user) => {
     if(!user){
       document.getElementById('pwaLoading').style.display = 'none';
@@ -2443,6 +2493,8 @@ function enterApp(role){
 function limpiarModalHistorialSuelto(){
   const modalSuelto = document.getElementById('historialMesModalDinamico');
   if(modalSuelto) modalSuelto.remove();
+  const modalQr = document.getElementById('qrAccesoModalDinamico');
+  if(modalQr) modalQr.remove();
 }
 
 async function cambiarPassword(){
@@ -2665,16 +2717,87 @@ function filterStudents(q){
   document.querySelectorAll('#tblAlumnos tr').forEach(tr=>{ if(tr.dataset.name) tr.style.display = tr.dataset.name.includes(q) ? '' : 'none'; });
 }
 
+function generarPasswordSimple(){
+  // Contraseña simple de 6 dígitos — el alumno nunca necesita escribirla,
+  // entra siempre con el QR, pero Firebase igual exige una contraseña válida.
+  return String(Math.floor(100000 + Math.random()*900000));
+}
+
 function openAddStudentModal(){
   document.getElementById('addStudentModal').classList.add('active');
+  document.getElementById('asForm').reset();
+  document.getElementById('asForm').style.display = '';
+  document.getElementById('asResultado').style.display = 'none';
+  document.getElementById('asModalTitle').textContent = 'Agregar alumno';
+  document.getElementById('asPass').value = generarPasswordSimple();
+  document.getElementById('asBtn').disabled = false;
+  document.getElementById('asBtn').textContent = 'Crear alumno';
+  populateAsPlanSelect();
 }
 function closeAddStudentModal(){
   document.getElementById('addStudentModal').classList.remove('active');
   document.getElementById('asError').textContent = '';
 }
-function handleAddStudent(event){
+
+async function handleAddStudent(event){
   event.preventDefault();
-  document.getElementById('asError').textContent = 'Los alumnos crean su propia cuenta desde "Crear cuenta" — vos les asignás el plan después, desde su perfil.';
+  const errorEl = document.getElementById('asError');
+  errorEl.textContent = '';
+  if(!window.fb || !window.fb.crearAlumnoSinDesloguearAdmin){
+    errorEl.textContent = 'Todavía no se conectó con el servidor. Esperá unos segundos y probá de nuevo.';
+    return false;
+  }
+  const nombre = document.getElementById('asNombre').value.trim();
+  const email = document.getElementById('asEmail').value.trim();
+  const telefono = document.getElementById('asTel').value.trim();
+  const planNombre = document.getElementById('asPlan').value;
+  const monto = Number(document.getElementById('asMonto').value) || 0;
+  const vencInput = document.getElementById('asVenc').value; // YYYY-MM-DD
+  const pass = document.getElementById('asPass').value.trim();
+  if(pass.length < 6){ errorEl.textContent = 'La contraseña necesita al menos 6 caracteres.'; return false; }
+
+  const btn = document.getElementById('asBtn');
+  btn.disabled = true; btn.textContent = 'Creando...';
+  const timeoutMs = 20000;
+  const timeout = new Promise((_, reject) => setTimeout(() => reject({ code:'timeout' }), timeoutMs));
+  try{
+    const uid = await Promise.race([window.fb.crearAlumnoSinDesloguearAdmin(email, pass), timeout]);
+    // La cuota "arranca" un mes antes del vencimiento elegido, para que addOneMonth() dé justo esa fecha.
+    let cuotaInicio = null;
+    if(vencInput){
+      const venc = new Date(vencInput + 'T00:00:00');
+      venc.setMonth(venc.getMonth() - 1);
+      cuotaInicio = venc.toISOString();
+    }
+    const profileData = {
+      role: 'alumno', name: nombre, email, telefono,
+      createdAt: new Date().toISOString(), profileCompleted: true,
+      goal: 'Sin definir', joinDate: new Date().toLocaleDateString('es-AR', {month:'2-digit', year:'numeric'}),
+      plan: planNombre || 'Sin asignar', amount: monto, cuotaInicio, membership: 'Activa',
+      completion: 0, routines: [], weightHistory: [0], workouts: 0, goalsReached: 0,
+      caloriesTotal: 0, pagos: [], sessions: [], notifications: [],
+      accessPass: pass // guardado para poder reimprimir su QR de acceso si lo pierde (ver nota de seguridad)
+    };
+    await Promise.race([window.fb.setDoc(window.fb.doc(window.fb.db, 'users', uid), profileData), timeout]);
+
+    // Link de acceso automático: al abrirlo, entra directo a la cuenta del alumno sin pedir nada.
+    const token = btoa(JSON.stringify({ e: email, p: pass }));
+    const linkAcceso = `${location.origin}${location.pathname}?al=${encodeURIComponent(token)}`;
+
+    document.getElementById('asForm').style.display = 'none';
+    document.getElementById('asResultado').style.display = 'block';
+    document.getElementById('asModalTitle').textContent = nombre;
+    QRCode.toCanvas(document.getElementById('asQrCanvasEl'), linkAcceso, { width: 200, margin: 1 }, (err) => {
+      if(err) document.getElementById('asQrCanvas').insertAdjacentHTML('beforeend', '<p style="color:#e0574a;font-size:.8rem;">Error generando el QR.</p>');
+    });
+
+    await loadAlumnosReales();
+  }catch(err){
+    errorEl.textContent = err.code === 'timeout'
+      ? 'La conexión está muy lenta. Revisá el wifi/datos e intentá de nuevo.'
+      : mapAuthError(err.code);
+    btn.disabled = false; btn.textContent = 'Crear alumno';
+  }
   return false;
 }
 
@@ -2755,6 +2878,27 @@ function filterIngresos(f, el){
   renderIngresosLista(f);
 }
 
+function mostrarQrAcceso(uid){
+  const s = ALUMNOS_REALES.find(a => a.id === uid);
+  if(!s || !s.accessPass) return;
+  const token = btoa(JSON.stringify({ e: s.email, p: s.accessPass }));
+  const linkAcceso = `${location.origin}${location.pathname}?al=${encodeURIComponent(token)}`;
+  const modalHTML = `
+    <div class="modal-overlay active" id="qrAccesoModalDinamico" onclick="if(event.target===this) this.remove();">
+      <div class="modal-box" style="text-align:center;">
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px;">
+          <h3 style="margin:0;">QR de acceso — ${s.name}</h3>
+          <span style="cursor:pointer;color:var(--off-dim);" onclick="document.getElementById('qrAccesoModalDinamico').remove();">✕</span>
+        </div>
+        <p style="font-size:.85rem;margin-bottom:16px;">Al escanear este código desde el celular de ${s.name}, entra directo a su cuenta.</p>
+        <div style="display:flex;justify-content:center;margin-bottom:16px;"><canvas id="qrAccesoCanvasEl"></canvas></div>
+        <button type="button" class="btn btn-solid btn-small" onclick="document.getElementById('qrAccesoModalDinamico').remove();">Cerrar</button>
+      </div>
+    </div>`;
+  document.body.insertAdjacentHTML('beforeend', modalHTML);
+  QRCode.toCanvas(document.getElementById('qrAccesoCanvasEl'), linkAcceso, { width: 220, margin: 1 }, () => {});
+}
+
 function renderProfile(uid){
   const s = ALUMNOS_REALES.find(a => a.id === uid);
   if(!s){ document.getElementById('perfilContent').innerHTML = '<p>No se encontró el alumno.</p>'; return; }
@@ -2773,6 +2917,7 @@ function renderProfile(uid){
         <div class="field-row"><span>Altura</span><span>${s.height || '—'} cm</span></div>
         <div class="field-row"><span>Objetivo</span><span>${s.goal}</span></div>
         <div class="field-row"><span>Ingreso</span><span>${s.joinDate || '—'}</span></div>
+        ${s.accessPass ? `<div style="margin-top:12px;"><span class="btn btn-ghost btn-small" onclick="mostrarQrAcceso('${s.id}')">📱 Ver QR de acceso</span></div>` : ''}
       </div>
       <div class="card"><h4>Cuota actual</h4>
         <div class="field-row"><span>Plan</span><span>${s.plan}</span></div>

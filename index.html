@@ -1979,9 +1979,22 @@ async function handleSavePlanes(){
   }
 }
 
+function handleAsPlanChange(){
+  const sel = document.getElementById('asPlan');
+  const montoInput = document.getElementById('asMonto');
+  if(!sel || !montoInput) return;
+  const selectedOption = sel.options[sel.selectedIndex];
+  const price = selectedOption ? selectedOption.dataset.price : '';
+  if(price) montoInput.value = price;
+}
 function populateAsPlanSelect(){
   const sel = document.getElementById('asPlan');
-  if(sel) sel.innerHTML = GYM_PLANS.map(p => `<option>${p.name}</option>`).join('');
+  if(sel){
+    sel.innerHTML = GYM_PLANS.map(p => `<option value="${p.name}" data-price="${p.price}">${p.name} - $${p.price.toLocaleString('es-AR')}</option>`).join('');
+    sel.onchange = handleAsPlanChange;
+    // Auto-llenar monto inicial
+    handleAsPlanChange();
+  }
 }
 
 let alumnosLoadError = null;
@@ -2733,6 +2746,16 @@ function openAddStudentModal(){
   document.getElementById('asBtn').disabled = false;
   document.getElementById('asBtn').textContent = 'Crear alumno';
   populateAsPlanSelect();
+  // Vencimiento automático a 1 mes desde hoy
+  const vencInput = document.getElementById('asVenc');
+  if(vencInput){
+    const hoy = new Date();
+    hoy.setMonth(hoy.getMonth() + 1);
+    const yyyy = hoy.getFullYear();
+    const mm = String(hoy.getMonth()+1).padStart(2,'0');
+    const dd = String(hoy.getDate()).padStart(2,'0');
+    vencInput.value = `${yyyy}-${mm}-${dd}`;
+  }
 }
 function closeAddStudentModal(){
   document.getElementById('addStudentModal').classList.remove('active');

@@ -2800,9 +2800,21 @@ async function handleAddStudent(event){
     document.getElementById('asForm').style.display = 'none';
     document.getElementById('asResultado').style.display = 'block';
     document.getElementById('asModalTitle').textContent = nombre;
-    QRCode.toCanvas(document.getElementById('asQrCanvasEl'), linkAcceso, { width: 200, margin: 1 }, (err) => {
-      if(err) document.getElementById('asQrCanvas').insertAdjacentHTML('beforeend', '<p style="color:#e0574a;font-size:.8rem;">Error generando el QR.</p>');
-    });
+    // Mostrar email y pass también por si el QR falla
+    const resDiv = document.getElementById('asResultado');
+    const infoExistente = resDiv.querySelector('#asCredsInfo');
+    if(!infoExistente){
+      resDiv.insertAdjacentHTML('beforeend', `<div id="asCredsInfo" style="background:rgba(242,237,228,.06);border:1px solid rgba(242,237,228,.1);border-radius:8px;padding:10px;margin-top:12px;text-align:left;"><p style="font-size:.72rem;color:var(--off-dim);margin:0 0 4px;">DATOS PARA LOGIN MANUAL:</p><div style="font-size:.82rem;"><strong>Email:</strong> ${email}</div><div style="font-size:.82rem;"><strong>Pass:</strong> ${pass}</div></div>`);
+    }
+    const qrCanvasEl = document.getElementById('asQrCanvasEl');
+    if(qrCanvasEl){
+      qrCanvasEl.parentElement.style.background = '#fff';
+      qrCanvasEl.parentElement.style.padding = '12px';
+      qrCanvasEl.parentElement.style.borderRadius = '12px';
+      QRCode.toCanvas(qrCanvasEl, linkAcceso, { width: 200, margin: 2, errorCorrectionLevel: 'M' }, (err) => {
+        if(err) document.getElementById('asQrCanvas').insertAdjacentHTML('beforeend', '<p style="color:#e0574a;font-size:.8rem;">Error generando el QR. Usá email/pass de abajo.</p>');
+      });
+    }
 
     await loadAlumnosReales();
   }catch(err){
@@ -2893,23 +2905,43 @@ function filterIngresos(f, el){
 
 function mostrarQrAcceso(uid){
   const s = ALUMNOS_REALES.find(a => a.id === uid);
-  if(!s || !s.accessPass) return;
+  if(!s) return;
+  if(!s.accessPass){
+    alert('Este alumno no tiene contraseña guardada (fue creado antes de esta actualización).\n\nSolución: borralo y crealo de nuevo desde + Agregar alumno, así se le genera QR nuevo con contraseña.');
+    return;
+  }
   const token = btoa(JSON.stringify({ e: s.email, p: s.accessPass }));
   const linkAcceso = `${location.origin}${location.pathname}?al=${encodeURIComponent(token)}`;
   const modalHTML = `
     <div class="modal-overlay active" id="qrAccesoModalDinamico" onclick="if(event.target===this) this.remove();">
-      <div class="modal-box" style="text-align:center;">
+      <div class="modal-box" style="text-align:left;max-width:420px;">
         <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px;">
           <h3 style="margin:0;">QR de acceso — ${s.name}</h3>
           <span style="cursor:pointer;color:var(--off-dim);" onclick="document.getElementById('qrAccesoModalDinamico').remove();">✕</span>
         </div>
-        <p style="font-size:.85rem;margin-bottom:16px;">Al escanear este código desde el celular de ${s.name}, entra directo a su cuenta.</p>
-        <div style="display:flex;justify-content:center;margin-bottom:16px;"><canvas id="qrAccesoCanvasEl"></canvas></div>
-        <button type="button" class="btn btn-solid btn-small" onclick="document.getElementById('qrAccesoModalDinamico').remove();">Cerrar</button>
+        <p style="font-size:.85rem;margin-bottom:12px;text-align:center;">Escaneá el QR con el celu de ${s.name} para entrar directo.</p>
+        <div style="display:flex;justify-content:center;margin-bottom:16px;background:#fff;padding:12px;border-radius:12px;"><canvas id="qrAccesoCanvasEl"></canvas></div>
+        <div style="background:rgba(242,237,228,.06);border:1px solid rgba(242,237,228,.1);border-radius:8px;padding:12px;margin-bottom:12px;">
+          <p style="font-size:.75rem;color:var(--off-dim);margin:0 0 6px;text-transform:uppercase;letter-spacing:.08em;">Si el QR no le anda, que inicie sesión manual:</p>
+          <div style="font-size:.85rem;"><strong>Email:</strong> ${s.email}</div>
+          <div style="font-size:.85rem;"><strong>Contraseña:</strong> ${s.accessPass}</div>
+        </div>
+        <div style="display:flex;gap:8px;">
+          <button type="button" class="btn btn-ghost btn-small" style="flex:1;" onclick="navigator.clipboard.writeText('${s.email}'); alert('Email copiado');">Copiar email</button>
+          <button type="button" class="btn btn-ghost btn-small" style="flex:1;" onclick="navigator.clipboard.writeText('${s.accessPass}'); alert('Contraseña copiada');">Copiar pass</button>
+        </div>
+        <button type="button" class="btn btn-solid btn-small" style="width:100%;margin-top:12px;" onclick="document.getElementById('qrAccesoModalDinamico').remove();">Cerrar</button>
       </div>
     </div>`;
   document.body.insertAdjacentHTML('beforeend', modalHTML);
-  QRCode.toCanvas(document.getElementById('qrAccesoCanvasEl'), linkAcceso, { width: 220, margin: 1 }, () => {});
+  const canvas = document.getElementById('qrAccesoCanvasEl');
+  if(canvas && typeof QRCode !== 'undefined'){
+    QRCode.toCanvas(canvas, linkAcceso, { width: 220, margin: 2, errorCorrectionLevel: 'M' }, (err)=>{
+      if(err){
+        canvas.parentElement.innerHTML = '<p style=\'color:#e0574a;font-size:.8rem;text-align:center;\'>Error generando QR. Usá el email y contraseña de abajo para entrar manual.<br><a href=\''+linkAcceso+'\' style=\'color:var(--forge);word-break:break-all;\'>'+linkAcceso+'</a></p>';
+      }
+    });
+  }
 }
 
 function renderProfile(uid){

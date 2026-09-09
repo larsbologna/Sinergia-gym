@@ -20,7 +20,8 @@
     const { initializeApp } = await import("https://www.gstatic.com/firebasejs/12.18.0/firebase-app.js");
     const {
       getAuth, signInWithEmailAndPassword, createUserWithEmailAndPassword,
-      onAuthStateChanged, signOut, updateProfile
+      onAuthStateChanged, signOut, updateProfile, updatePassword,
+      EmailAuthProvider, reauthenticateWithCredential
     } = await import("https://www.gstatic.com/firebasejs/12.18.0/firebase-auth.js");
     const {
       getFirestore, doc, setDoc, getDoc, deleteDoc, collection, addDoc, serverTimestamp, query, where, getDocs
@@ -44,7 +45,8 @@
     window.fb = {
       auth, db,
       signInWithEmailAndPassword, createUserWithEmailAndPassword,
-      onAuthStateChanged, signOut, updateProfile,
+      onAuthStateChanged, signOut, updateProfile, updatePassword,
+      EmailAuthProvider, reauthenticateWithCredential,
       doc, setDoc, getDoc, deleteDoc, collection, addDoc, serverTimestamp, query, where, getDocs
     };
     window.dispatchEvent(new CustomEvent('fbReady'));
@@ -1158,6 +1160,7 @@
           📲 Para instalarla: tocá <strong>Compartir</strong> y luego <strong>"Agregar a inicio"</strong>.
         </div>
         <div class="btn btn-ghost btn-small" style="width:100%;" onclick="goToPublicSite()">Ver sitio del gimnasio</div>
+        <div class="btn btn-ghost btn-small" style="width:100%;" onclick="cambiarPassword()">🔒 Cambiar contraseña</div>
         <div class="btn btn-ghost btn-small" style="width:100%;" onclick="logoutFirebase()">Salir</div>
       </div>
     </div>
@@ -2440,6 +2443,34 @@ function enterApp(role){
 function limpiarModalHistorialSuelto(){
   const modalSuelto = document.getElementById('historialMesModalDinamico');
   if(modalSuelto) modalSuelto.remove();
+}
+
+async function cambiarPassword(){
+  const nueva = prompt('Nueva contraseña (mínimo 6 caracteres):');
+  if(!nueva) return;
+  if(nueva.length < 6){ alert('La contraseña tiene que tener al menos 6 caracteres.'); return; }
+  const user = window.fb.auth.currentUser;
+  if(!user){ alert('No hay una sesión activa.'); return; }
+  try{
+    await window.fb.updatePassword(user, nueva);
+    alert('✅ Contraseña cambiada.');
+  }catch(err){
+    if(err.code === 'auth/requires-recent-login'){
+      // Firebase pide reconfirmar la sesión (por seguridad) antes de dejar cambiar la contraseña.
+      const passActual = prompt('Por seguridad, ingresá tu contraseña actual para confirmar:');
+      if(!passActual) return;
+      try{
+        const cred = window.fb.EmailAuthProvider.credential(user.email, passActual);
+        await window.fb.reauthenticateWithCredential(user, cred);
+        await window.fb.updatePassword(user, nueva);
+        alert('✅ Contraseña cambiada.');
+      }catch(err2){
+        alert('No se pudo cambiar la contraseña: ' + (err2.code || err2.message));
+      }
+    }else{
+      alert('No se pudo cambiar la contraseña: ' + (err.code || err.message));
+    }
+  }
 }
 
 function logout(){

@@ -1329,26 +1329,40 @@
 
     <!-- ============ ADMIN: AGREGAR RUTINA (desde el banco) ============ -->
     <div class="modal-overlay" id="addRoutineModal">
-      <div class="modal-box">
+      <div class="modal-box" style="max-width:640px;">
         <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px;">
-          <h3 style="margin:0;">Agregar rutina</h3>
-          <span style="cursor:pointer;color:var(--off-dim);" onclick="closeAddRoutineModal()">✕</span>
+          <h3 style="margin:0;">Asignar rutina<span id="arNombreAlumnoTag" style="color:var(--off-dim);font-weight:400;"></span></h3>
+          <span style="cursor:pointer;color:var(--off-dim);" onclick="cancelarAsignacionRutina()">✕</span>
         </div>
-        <form class="auth-form active" onsubmit="return handleAddRoutineSubmit(event)">
-          <div><label>Rutina</label>
-            <select id="arSelect" onchange="handleArSelectChange()" style="width:100%;background:var(--carbon);border:1px solid rgba(242,237,228,.16);border-radius:8px;padding:11px 12px;color:var(--off);"></select>
-          </div>
-          <div id="arNuevoWrap" style="display:none;"><label>Nombre de la nueva rutina</label><input type="text" id="arNuevoNombre"></div>
+
+        <label style="font-size:.76rem;color:var(--off-dim);display:block;margin-bottom:6px;">Plantilla</label>
+        <div id="rtPlantillasTabs" style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:16px;"></div>
+
+        <div class="grid grid-2" style="gap:10px;margin-bottom:16px;">
+          <div><label>Nombre de la rutina</label><input type="text" id="rtNombreRutina" placeholder="Ej: Full Body"></div>
           <div><label>Día de la semana</label>
-            <select id="arDia" style="width:100%;background:var(--carbon);border:1px solid rgba(242,237,228,.16);border-radius:8px;padding:11px 12px;color:var(--off);">
+            <select id="rtDia" style="width:100%;background:var(--carbon);border:1px solid rgba(242,237,228,.16);border-radius:8px;padding:11px 12px;color:var(--off);">
               <option value="">Sin día fijo</option>
               <option value="L">Lunes</option><option value="M">Martes</option><option value="X">Miércoles</option>
               <option value="J">Jueves</option><option value="V">Viernes</option><option value="S">Sábado</option><option value="D">Domingo</option>
             </select>
           </div>
-          <div class="auth-error" id="arError"></div>
-          <button type="submit" class="btn-auth">Crear rutina</button>
-        </form>
+        </div>
+
+        <label style="font-size:.76rem;color:var(--off-dim);display:block;margin-bottom:6px;">Ejercicios</label>
+        <div id="rtListaEjercicios" style="display:flex;flex-direction:column;gap:10px;margin-bottom:14px;max-height:320px;overflow-y:auto;"></div>
+
+        <div style="position:relative;margin-bottom:16px;">
+          <span class="btn btn-ghost btn-small" onclick="toggleBuscadorEjercicioPlantilla()">+ Agregar ejercicio</span>
+          <div id="rtBuscadorPanel" style="display:none;position:absolute;bottom:100%;left:0;right:0;z-index:20;background:var(--carbon);border:1px solid rgba(242,237,228,.2);border-radius:8px;margin-bottom:6px;max-height:220px;overflow-y:auto;box-shadow:0 -8px 24px rgba(0,0,0,.4);"></div>
+        </div>
+
+        <div class="auth-error" id="rtError"></div>
+        <div style="display:flex;gap:10px;flex-wrap:wrap;border-top:1px solid rgba(242,237,228,.12);padding-top:16px;">
+          <button type="button" class="btn btn-solid btn-small" onclick="guardarRutinaAlumno()">Guardar rutina<span id="rtGuardarNombreTag"></span></button>
+          <button type="button" class="btn btn-ghost btn-small" onclick="crearNuevaPlantilla()">Guardar como nueva plantilla</button>
+          <button type="button" class="btn btn-ghost btn-small" onclick="cancelarAsignacionRutina()">Cancelar</button>
+        </div>
       </div>
     </div>
 
@@ -3002,7 +3016,7 @@ function renderProfile(uid){
     <div class="card">
       <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:4px;">
         <h4 style="margin:0;">Rutinas asignadas</h4>
-        <button class="btn btn-solid btn-small" onclick="handleAddRoutine('${s.id}')">+ Nueva rutina</button>
+        <button class="btn btn-solid btn-small" onclick="handleAddRoutine('${s.id}')">+ Asignar rutina</button>
       </div>
       ${(!s.routines || !s.routines.length) ? '<p style="font-size:.85rem;color:var(--off-dim);">Todavía no tiene una rutina asignada.</p>' : renderRoutinesGroupedByDay(s, true, 'admin')}
     </div>
@@ -3118,47 +3132,249 @@ function askForDay(actual){
 
 let addRoutineCtx = null; // uid
 
+// ===== SISTEMA DE PLANTILLAS DE RUTINAS =====
+const RUTINAS_PLANTILLAS = {
+  calistenia: { nombre: "Calistenia", ejercicios: [
+    { nombre:"Dominadas", series:"4", reps:"8-12", descanso:"90s" },
+    { nombre:"Fondos en paralelas", series:"4", reps:"10-15", descanso:"90s" },
+    { nombre:"Flexiones", series:"4", reps:"15-20", descanso:"60s" },
+    { nombre:"Sentadilla pistol asistida", series:"3", reps:"8 c/l", descanso:"60s" },
+    { nombre:"Plancha", series:"3", reps:"45s", descanso:"60s" }
+  ]},
+  acond_fisico: { nombre: "Acond. Físico", ejercicios: [
+    { nombre:"Burpees", series:"4", reps:"15", descanso:"60s" },
+    { nombre:"Jumping Jacks", series:"4", reps:"40s", descanso:"45s" },
+    { nombre:"Mountain Climbers", series:"3", reps:"30s", descanso:"45s" },
+    { nombre:"Sentadilla con salto", series:"4", reps:"15", descanso:"60s" },
+    { nombre:"Abdominales bicicleta", series:"3", reps:"20", descanso:"45s" }
+  ]},
+  full_body: { nombre: "Full Body", ejercicios: [
+    { nombre:"Sentadilla con barra", series:"4", reps:"10", descanso:"90s" },
+    { nombre:"Press banca", series:"4", reps:"8-10", descanso:"90s" },
+    { nombre:"Peso muerto", series:"3", reps:"8", descanso:"120s" },
+    { nombre:"Remo con barra", series:"3", reps:"10", descanso:"90s" },
+    { nombre:"Press militar", series:"3", reps:"10", descanso:"90s" }
+  ]},
+  hipertrofia_sup: { nombre: "Hipertrofia Superior", ejercicios: [
+    { nombre:"Press banca plano", series:"4", reps:"8-10", descanso:"90s" },
+    { nombre:"Remo con mancuerna", series:"4", reps:"10-12", descanso:"75s" },
+    { nombre:"Press militar mancuernas", series:"3", reps:"10", descanso:"75s" },
+    { nombre:"Jalón al pecho", series:"3", reps:"12", descanso:"60s" },
+    { nombre:"Curl de bíceps", series:"3", reps:"12", descanso:"45s" },
+    { nombre:"Extensión de tríceps", series:"3", reps:"12", descanso:"45s" }
+  ]},
+  piernas_gluteos: { nombre: "Piernas y Glúteos", ejercicios: [
+    { nombre:"Sentadilla profunda", series:"4", reps:"10-12", descanso:"90s" },
+    { nombre:"Peso muerto rumano", series:"4", reps:"10", descanso:"90s" },
+    { nombre:"Zancadas caminando", series:"3", reps:"12 c/l", descanso:"60s" },
+    { nombre:"Hip thrust", series:"4", reps:"12-15", descanso:"75s" },
+    { nombre:"Extensión de cuádriceps", series:"3", reps:"15", descanso:"45s" },
+    { nombre:"Curl femoral", series:"3", reps:"12", descanso:"45s" }
+  ]}
+};
+// Plantillas guardadas por el gimnasio (persisten en este navegador vía localStorage).
+try{
+  const guardadas = JSON.parse(localStorage.getItem('sinergia_plantillas_custom') || '{}');
+  Object.assign(RUTINAS_PLANTILLAS, guardadas);
+}catch(err){ console.error('No se pudieron leer las plantillas guardadas:', err); }
+
+let rutinaTemporal = [];       // ejercicios de la rutina que se está armando
+let rutinaTemporalCambios = false; // para el confirm al cancelar
+let editandoIndexPlantilla = null; // índice en edición inline, o null
+
 function handleAddRoutine(uid){
   addRoutineCtx = uid;
-  populateArSelect();
-  document.getElementById('arDia').value = '';
-  document.getElementById('arError').textContent = '';
-  handleArSelectChange();
+  const s = ALUMNOS_REALES.find(a => a.id === uid);
+  rutinaTemporal = [];
+  rutinaTemporalCambios = false;
+  editandoIndexPlantilla = null;
+  document.getElementById('arNombreAlumnoTag').textContent = s ? ' — ' + s.name : '';
+  document.getElementById('rtGuardarNombreTag').textContent = s ? ' para ' + s.name : '';
+  document.getElementById('rtNombreRutina').value = '';
+  document.getElementById('rtDia').value = '';
+  document.getElementById('rtError').textContent = '';
+  document.getElementById('rtBuscadorPanel').style.display = 'none';
+  renderPlantillasTabs();
+  renderListaEjerciciosPlantilla();
   document.getElementById('addRoutineModal').classList.add('active');
 }
-function closeAddRoutineModal(){
+
+function cancelarAsignacionRutina(){
+  if(rutinaTemporalCambios){
+    const confirmar = confirm('Vas a perder los cambios de esta rutina sin guardar. ¿Cerrar igual?');
+    if(!confirmar) return;
+  }
   document.getElementById('addRoutineModal').classList.remove('active');
   addRoutineCtx = null;
+  rutinaTemporal = [];
+  rutinaTemporalCambios = false;
 }
-function populateArSelect(){
-  const sel = document.getElementById('arSelect');
-  sel.innerHTML = ROUTINE_BANK.map(n => `<option value="${n}">${n}</option>`).join('') + `<option value="__nuevo__">+ Cargar rutina nueva...</option>`;
+// Se mantiene por compatibilidad con código o botones viejos que la llamaran.
+function closeAddRoutineModal(){ cancelarAsignacionRutina(); }
+
+function renderPlantillasTabs(){
+  const cont = document.getElementById('rtPlantillasTabs');
+  const claves = Object.keys(RUTINAS_PLANTILLAS);
+  cont.innerHTML = `<span class="btn btn-ghost btn-small" onclick="seleccionarPlantilla(null)">Todas</span>` +
+    claves.map(k => `<span class="btn btn-ghost btn-small" onclick="seleccionarPlantilla('${k}')">${RUTINAS_PLANTILLAS[k].nombre}</span>`).join('') +
+    `<span class="btn btn-solid btn-small" onclick="crearNuevaPlantilla()">+ Crear plantilla</span>`;
 }
-function handleArSelectChange(){
-  const esNuevo = document.getElementById('arSelect').value === '__nuevo__';
-  document.getElementById('arNuevoWrap').style.display = esNuevo ? 'block' : 'none';
-}
-async function handleAddRoutineSubmit(event){
-  event.preventDefault();
-  if(!addRoutineCtx) return false;
-  const errorEl = document.getElementById('arError');
-  const selVal = document.getElementById('arSelect').value;
-  let nombre;
-  if(selVal === '__nuevo__'){
-    nombre = document.getElementById('arNuevoNombre').value.trim();
-    if(!nombre){ errorEl.textContent = 'Escribí el nombre de la nueva rutina.'; return false; }
-    if(!ROUTINE_BANK.includes(nombre)){ ROUTINE_BANK.push(nombre); await saveRoutineBank(); }
+
+function seleccionarPlantilla(key){
+  if(key === null){
+    // "Todas": arranca en blanco, para armar la rutina eligiendo ejercicios sueltos.
+    rutinaTemporal = [];
   }else{
-    nombre = selVal;
+    const plantilla = RUTINAS_PLANTILLAS[key];
+    if(!plantilla) return;
+    rutinaTemporal = JSON.parse(JSON.stringify(plantilla.ejercicios));
+    if(!document.getElementById('rtNombreRutina').value.trim()){
+      document.getElementById('rtNombreRutina').value = plantilla.nombre;
+    }
   }
-  const dia = document.getElementById('arDia').value || null;
+  rutinaTemporalCambios = true;
+  editandoIndexPlantilla = null;
+  renderListaEjerciciosPlantilla();
+}
+
+function renderListaEjerciciosPlantilla(){
+  const cont = document.getElementById('rtListaEjercicios');
+  if(!rutinaTemporal.length){
+    cont.innerHTML = `<p style="font-size:.82rem;color:var(--off-dim);">Elegí una plantilla arriba, o agregá ejercicios sueltos con "+ Agregar ejercicio".</p>`;
+    return;
+  }
+  cont.innerHTML = rutinaTemporal.map((e, i) => {
+    if(editandoIndexPlantilla === i){
+      return `
+        <div class="card" style="padding:12px;">
+          <div class="grid grid-2" style="gap:8px;margin-bottom:8px;">
+            <input type="text" id="rtEditNombre-${i}" value="${e.nombre}" placeholder="Nombre del ejercicio">
+            <input type="text" id="rtEditSeries-${i}" value="${e.series}" placeholder="Series">
+          </div>
+          <div class="grid grid-2" style="gap:8px;margin-bottom:10px;">
+            <input type="text" id="rtEditReps-${i}" value="${e.reps}" placeholder="Reps">
+            <input type="text" id="rtEditDescanso-${i}" value="${e.descanso}" placeholder="Descanso">
+          </div>
+          <span class="btn btn-solid btn-small" onclick="guardarEdicionEjercicioPlantilla(${i})">💾 Guardar</span>
+        </div>`;
+    }
+    return `
+      <div class="card" style="padding:12px;display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap;">
+        <div>
+          <strong style="font-size:.9rem;">${e.nombre}</strong>
+          <p style="font-size:.78rem;color:var(--off-dim);margin-top:3px;">${e.series} series · ${e.reps} reps · descanso ${e.descanso}</p>
+        </div>
+        <div style="display:flex;gap:6px;flex-shrink:0;">
+          <span class="btn btn-ghost btn-small" onclick="editarEjercicioPlantilla(${i})">✏️ Editar</span>
+          <span class="btn btn-ghost btn-small" onclick="borrarEjercicioPlantilla(${i})">🗑️ Borrar</span>
+        </div>
+      </div>`;
+  }).join('');
+}
+
+function editarEjercicioPlantilla(index){
+  editandoIndexPlantilla = index;
+  renderListaEjerciciosPlantilla();
+}
+
+function guardarEdicionEjercicioPlantilla(index){
+  const nombre = document.getElementById('rtEditNombre-'+index).value.trim();
+  const series = document.getElementById('rtEditSeries-'+index).value.trim();
+  const reps = document.getElementById('rtEditReps-'+index).value.trim();
+  const descanso = document.getElementById('rtEditDescanso-'+index).value.trim();
+  if(!nombre){ alert('El ejercicio necesita un nombre.'); return; }
+  rutinaTemporal[index] = { nombre, series: series||'3', reps: reps||'10-12', descanso: descanso||'60s' };
+  rutinaTemporalCambios = true;
+  editandoIndexPlantilla = null;
+  renderListaEjerciciosPlantilla();
+}
+
+function borrarEjercicioPlantilla(index){
+  const e = rutinaTemporal[index];
+  if(!e) return;
+  const confirmar = confirm(`¿Borrar "${e.nombre}" de esta rutina?`);
+  if(!confirmar) return;
+  rutinaTemporal.splice(index, 1);
+  rutinaTemporalCambios = true;
+  editandoIndexPlantilla = null;
+  renderListaEjerciciosPlantilla();
+}
+
+function agregarEjercicioAPlantilla(ejercicio){
+  rutinaTemporal.push(ejercicio);
+  rutinaTemporalCambios = true;
+  renderListaEjerciciosPlantilla();
+}
+
+function toggleBuscadorEjercicioPlantilla(){
+  const panel = document.getElementById('rtBuscadorPanel');
+  const abierto = panel.style.display === 'block';
+  panel.style.display = abierto ? 'none' : 'block';
+  if(!abierto) renderBuscadorEjercicioPlantilla();
+}
+
+function renderBuscadorEjercicioPlantilla(){
+  const panel = document.getElementById('rtBuscadorPanel');
+  const grupos = {};
+  EXERCISE_BANK.forEach(e => { (grupos[e.group || 'Otros'] = grupos[e.group || 'Otros'] || []).push(e); });
+  panel.innerHTML = Object.keys(grupos).map(g => `
+    <div style="padding:8px 12px;background:rgba(255,255,255,.05);font-size:.72rem;text-transform:uppercase;letter-spacing:.06em;color:var(--off-dim);font-weight:700;">${g}</div>
+    ${grupos[g].map(e => `
+      <div style="padding:10px 16px;cursor:pointer;" onmouseover="this.style.background='rgba(255,255,255,.06)'" onmouseout="this.style.background='transparent'"
+        onclick='agregarEjercicioAPlantilla({nombre:${JSON.stringify(e.name)}, series:"3", reps:"10-12", descanso:"60s"}); document.getElementById("rtBuscadorPanel").style.display="none";'>
+        ${e.name}
+      </div>`).join('')}
+  `).join('') || '<p style="padding:12px;font-size:.8rem;color:var(--off-dim);">No hay ejercicios cargados en el banco todavía.</p>';
+}
+
+function parseDescansoASegundos(descanso){
+  const n = parseInt(String(descanso).replace(/[^\d]/g,''), 10);
+  return isNaN(n) ? 60 : n;
+}
+
+async function guardarRutinaAlumno(){
+  const errorEl = document.getElementById('rtError');
+  errorEl.textContent = '';
+  if(!addRoutineCtx) return;
+  const nombre = document.getElementById('rtNombreRutina').value.trim();
+  if(!nombre){ errorEl.textContent = 'Ponele un nombre a la rutina.'; return; }
+  if(!rutinaTemporal.length){ errorEl.textContent = 'Agregá al menos un ejercicio.'; return; }
+  const dia = document.getElementById('rtDia').value || null;
   const uid = addRoutineCtx;
   const s = ALUMNOS_REALES.find(a => a.id === uid);
+  if(!s){ errorEl.textContent = 'No se encontró el alumno.'; return; }
+
+  const ejerciciosGuardar = rutinaTemporal.map(e => ({
+    ex: e.nombre, sets: e.series, reps: e.reps, weight: null, lastWeight: null,
+    rest: parseDescansoASegundos(e.descanso), done: false, video: null
+  }));
   const routines = s.routines ? [...s.routines] : [];
-  routines.push({ name: nombre, day: dia, progress: 0, exercises: [] });
-  await saveStudentRoutines(uid, routines);
-  closeAddRoutineModal();
-  return false;
+  routines.push({ name: nombre, day: dia, progress: 0, exercises: ejerciciosGuardar });
+
+  try{
+    await saveStudentRoutines(uid, routines);
+    rutinaTemporal = [];
+    rutinaTemporalCambios = false;
+    document.getElementById('addRoutineModal').classList.remove('active');
+    addRoutineCtx = null;
+  }catch(err){
+    errorEl.textContent = 'No se pudo guardar (' + (err.code || err.message) + ').';
+  }
+}
+
+function crearNuevaPlantilla(){
+  if(!rutinaTemporal.length){ alert('Armá primero la lista de ejercicios para poder guardarla como plantilla.'); return; }
+  const nombre = prompt('Nombre de la nueva plantilla (ej: "Espalda y bíceps"):');
+  if(!nombre || !nombre.trim()) return;
+  const key = 'custom_' + nombre.trim().toLowerCase().replace(/[^a-z0-9]+/g, '_').slice(0, 40) + '_' + Date.now();
+  RUTINAS_PLANTILLAS[key] = { nombre: nombre.trim(), ejercicios: JSON.parse(JSON.stringify(rutinaTemporal)) };
+  try{
+    const guardadas = JSON.parse(localStorage.getItem('sinergia_plantillas_custom') || '{}');
+    guardadas[key] = RUTINAS_PLANTILLAS[key];
+    localStorage.setItem('sinergia_plantillas_custom', JSON.stringify(guardadas));
+  }catch(err){ console.error('No se pudo guardar la plantilla en este navegador:', err); }
+  renderPlantillasTabs();
+  alert('✅ Plantilla "' + nombre.trim() + '" guardada. Va a aparecer en la lista de plantillas la próxima vez.');
 }
 
 let addExerciseCtx = null; // { uid, ri }

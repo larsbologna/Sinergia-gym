@@ -2,7 +2,7 @@
 <html lang="es">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover, ">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
 <title>Sinergia | Centro de Entrenamiento</title>
 <link rel="manifest" href="manifest.json">
 <meta name="theme-color" content="#0049CD">
@@ -1070,6 +1070,10 @@
           <label for="regPass">Contraseña</label>
           <input type="password" id="regPass" placeholder="Mínimo 6 caracteres" minlength="6" required>
         </div>
+        <div>
+          <label for="regPass2">Confirmar contraseña</label>
+          <input type="password" id="regPass2" placeholder="Repetí la contraseña" minlength="6" required>
+        </div>
         <div class="auth-error" id="regError"></div>
         <div class="auth-msg" id="regMsg"></div>
         <button type="submit" class="btn-auth" id="regBtn">Crear mi cuenta</button>
@@ -2032,20 +2036,31 @@ async function handleRegistro(event){
   const nombre = document.getElementById('regNombre').value.trim();
   const email = document.getElementById('regEmail').value.trim();
   const pass = document.getElementById('regPass').value;
+  const pass2 = document.getElementById('regPass2').value;
   const msgEl = document.getElementById('regMsg');
   const btn = document.getElementById('regBtn');
   errorEl.textContent = ''; msgEl.textContent = '';
+  if(pass !== pass2){ errorEl.textContent = 'Las contraseñas no coinciden.'; return false; }
   btn.disabled = true; btn.textContent = 'Creando cuenta...';
+  // Límite de tiempo: si la conexión es muy lenta o se corta, avisamos en vez de dejar
+  // el botón trabado para siempre.
+  const timeoutMs = 20000;
+  const timeout = new Promise((_, reject) => setTimeout(() => reject({ code: 'timeout' }), timeoutMs));
   try{
-    const cred = await window.fb.createUserWithEmailAndPassword(window.fb.auth, email, pass);
-    await window.fb.updateProfile(cred.user, { displayName: nombre });
-    await window.fb.setDoc(window.fb.doc(window.fb.db, 'users', cred.user.uid), {
-      role: 'alumno', name: nombre, email: email, createdAt: new Date().toISOString()
-    });
+    // Solo se crea la CUENTA DE ACCESO acá (email/contraseña en Firebase Authentication).
+    // El PERFIL en Firestore (users/{uid}) recién se crea al terminar el onboarding,
+    // con todos los datos completos — no antes.
+    const cred = await Promise.race([
+      window.fb.createUserWithEmailAndPassword(window.fb.auth, email, pass),
+      timeout
+    ]);
+    await Promise.race([window.fb.updateProfile(cred.user, { displayName: nombre }), timeout]);
     justSignedUp = true;
-    // el resto (entrar como alumno) lo maneja onAuthStateChanged
+    // el resto (onboarding y entrar como alumno) lo maneja onAuthStateChanged
   }catch(err){
-    errorEl.textContent = mapAuthError(err.code);
+    errorEl.textContent = err.code === 'timeout'
+      ? 'La conexión está muy lenta y no pudimos crear la cuenta. Revisá tu wifi/datos e intentá de nuevo.'
+      : mapAuthError(err.code);
     btn.disabled = false; btn.textContent = 'Crear mi cuenta';
   }
 }
@@ -2103,6 +2118,7 @@ async function handleOnboarding(event){
   try{
     const profileData = {
       role: 'alumno', name: user.displayName || 'Alumno', email: user.email,
+      createdAt: new Date().toISOString(),
       age, weight, height, goal, profileCompleted: true,
       joinDate: new Date().toLocaleDateString('es-AR', {month:'2-digit', year:'numeric'}),
       plan: null, membership: 'Pendiente', due: null, amount: 0,

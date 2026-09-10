@@ -2417,46 +2417,31 @@ function initAuthListener(){
   // ===== Acceso automático por QR/link (para alumnos que no manejan usuario/contraseña) =====
   function intentarAutoLoginPorLink(){
     const params = new URLSearchParams(location.search);
-    let autoLoginToken = params.get('al');
-    if(!autoLoginToken){
-      autoLoginToken = sessionStorage.getItem('sinergia_pending_al_token');
-    }
+    const autoLoginToken = params.get('al');
     if(!autoLoginToken) return false;
-    sessionStorage.setItem('sinergia_pending_al_token', autoLoginToken);
-    try{ history.replaceState({}, '', location.pathname); }catch(e){}
-    const publicSite = document.getElementById('publicSite');
-    if(publicSite) publicSite.style.display = 'none';
+    history.replaceState({}, '', location.pathname);
+    document.getElementById('publicSite').style.display = 'none';
     const loader = document.getElementById('pwaLoading');
     if(loader) loader.style.display = 'flex';
     try{
-      const decoded = atob(decodeURIComponent(autoLoginToken));
-      const { e, p } = JSON.parse(decoded);
-      const hacerLogin = () => {
-        if(!window.fb || !window.fb.auth){ setTimeout(hacerLogin, 300); return; }
-        window.fb.signInWithEmailAndPassword(window.fb.auth, e, p)
-          .then(()=>{ sessionStorage.removeItem('sinergia_pending_al_token'); })
-          .catch(err => {
-            console.error('QR login fail:', err);
-            if(err.code === 'auth/invalid-credential' || err.code === 'auth/wrong-password' || err.code === 'auth/user-not-found'){
-              alert('QR no válido. Pedí un QR nuevo o entrá manual con email y contraseña.');
-            }
-            sessionStorage.removeItem('sinergia_pending_al_token');
-            if(loader) loader.style.display = 'none';
-            openGate();
-          });
-      };
-      if(window.fb && window.fb.auth){ hacerLogin(); } else { window.addEventListener('fbReady', hacerLogin, {once:true}); setTimeout(hacerLogin, 1000); }
+      const { e, p } = JSON.parse(atob(decodeURIComponent(autoLoginToken)));
+      // Pequeño delay para asegurar que Firebase ya está listo
+      const hacerLogin = () => window.fb.signInWithEmailAndPassword(window.fb.auth, e, p).catch(err => {
+        console.error('No se pudo entrar con el link automático:', err);
+        if(loader) loader.style.display = 'none';
+        openGate();
+      });
+      if(window.fb && window.fb.auth){ hacerLogin(); } else { window.addEventListener('fbReady', hacerLogin, {once:true}); }
     }catch(err){
-      console.error('Link inválido:', err);
-      sessionStorage.removeItem('sinergia_pending_al_token');
+      console.error('Link de acceso inválido:', err);
       const loader = document.getElementById('pwaLoading');
       if(loader) loader.style.display = 'none';
       openGate();
     }
     return true;
   }
+  // Intentar al cargar la página
   intentarAutoLoginPorLink();
-  window.addEventListener('focus', ()=>{ if(sessionStorage.getItem('sinergia_pending_al_token')) intentarAutoLoginPorLink(); });
 
   window.fb.onAuthStateChanged(window.fb.auth, async (user) => {
     if(!user){
@@ -2987,15 +2972,9 @@ function filterIngresos(f, el){
 
 function mostrarQrAcceso(uid){
   const s = ALUMNOS_REALES.find(a => a.id === uid);
-  if(!s){ alert('Alumno no encontrado'); return; }
-  if(!s.accessPass){
-    alert('Este alumno no tiene contraseña guardada. Borralo y crealo de nuevo desde + Agregar alumno.');
-    return;
-  }
+  if(!s || !s.accessPass) return;
   const token = btoa(JSON.stringify({ e: s.email, p: s.accessPass }));
   const linkAcceso = `${location.origin}${location.pathname}?al=${encodeURIComponent(token)}`;
-  const modalHTML = `
-    <div class="modal-overlay activ${location.pathname}?al=${encodeURIComponent(token)}`;
   const modalHTML = `
     <div class="modal-overlay active" id="qrAccesoModalDinamico" onclick="if(event.target===this) this.remove();">
       <div class="modal-box" style="text-align:center;">
@@ -3195,65 +3174,44 @@ function crearDiaVacio(nombre){
 }
 
 const RUTINAS_PLANTILLAS = {
-  adaptacion_2x: { id:"adaptacion_2x", nombre: "Plan Adaptación 2 veces", cantidadDias:2, dias: {
-    dia1: { id:"dia1", nombre:"Día 1 - Tren superior", ejercicios: [
-      { id:"ad1", nombre:"Press banca con mancuernas", series:"3", reps:"12", descanso:"60s", peso:"", color:"amarillo", video:"", grupo:"A" },
-      { id:"ad2", nombre:"Remo con mancuerna", series:"3", reps:"12", descanso:"60s", peso:"", color:"amarillo", video:"", grupo:"A" },
-      { id:"ad3", nombre:"Press militar sentado", series:"3", reps:"12", descanso:"60s", peso:"", color:"azul", video:"", grupo:"B" },
-      { id:"ad4", nombre:"Jalón al pecho", series:"3", reps:"12", descanso:"60s", peso:"", color:"azul", video:"", grupo:"B" }
-    ]},
-    dia2: { id:"dia2", nombre:"Día 2 - Tren inferior + Zona media", ejercicios: [
-      { id:"ad5", nombre:"Sentadilla goblet", series:"3", reps:"12", descanso:"60s", peso:"", color:"verde", video:"", grupo:"C" },
-      { id:"ad6", nombre:"Peso muerto rumano", series:"3", reps:"12", descanso:"60s", peso:"", color:"verde", video:"", grupo:"C" },
-      { id:"ad7", nombre:"Plancha", series:"3", reps:"30s", descanso:"45s", peso:"", color:"", video:"", grupo:"" },
-      { id:"ad8", nombre:"Abdominales bicicleta", series:"3", reps:"20", descanso:"45s", peso:"", color:"", video:"", grupo:"" }
-    ]}
-  }},
-  full_body_3x: { id:"full_body_3x", nombre: "Full Body 3 veces", cantidadDias:3, dias: {
-    dia1: { id:"dia1", nombre:"Día 1 - Empuje", ejercicios: [
-      { id:"fb1", nombre:"Sentadilla con barra", series:"4", reps:"10", descanso:"90s", peso:"", color:"", video:"", grupo:"" },
-      { id:"fb2", nombre:"Press banca", series:"4", reps:"8-10", descanso:"90s", peso:"", color:"amarillo", video:"", grupo:"A" },
-      { id:"fb3", nombre:"Press militar", series:"3", reps:"10", descanso:"90s", peso:"", color:"amarillo", video:"", grupo:"A" }
-    ]},
-    dia2: { id:"dia2", nombre:"Día 2 - Tracción", ejercicios: [
-      { id:"fb4", nombre:"Peso muerto", series:"3", reps:"8", descanso:"120s", peso:"", color:"", video:"", grupo:"" },
-      { id:"fb5", nombre:"Dominadas", series:"4", reps:"8-12", descanso:"90s", peso:"", color:"azul", video:"", grupo:"B" },
-      { id:"fb6", nombre:"Remo con barra", series:"3", reps:"10", descanso:"90s", peso:"", color:"azul", video:"", grupo:"B" }
-    ]},
-    dia3: { id:"dia3", nombre:"Día 3 - Completo", ejercicios: [
-      { id:"fb7", nombre:"Hip thrust", series:"4", reps:"12", descanso:"60s", peso:"", color:"", video:"", grupo:"" },
-      { id:"fb8", nombre:"Fondos", series:"3", reps:"10", descanso:"60s", peso:"", color:"verde", video:"", grupo:"C" },
-      { id:"fb9", nombre:"Curl bíceps + Extensión tríceps", series:"3", reps:"12 c/u", descanso:"60s", peso:"", color:"verde", video:"", grupo:"C" }
-    ]}
-  }},
-  calistenia: { id:"calistenia", nombre: "Calistenia", cantidadDias:1, dias: { dia1: { id:"dia1", nombre:"Día 1", ejercicios: [
+  calistenia: { id:"calistenia", nombre: "Calistenia", cantidadDias: 1, dias: { dia1: { nombre:"Día 1", ejercicios: [
     { id:"c1", nombre:"Dominadas", series:"4", reps:"8-12", descanso:"90s", peso:"", color:"", video:"" },
     { id:"c2", nombre:"Fondos en paralelas", series:"4", reps:"10-15", descanso:"90s", peso:"", color:"", video:"" },
     { id:"c3", nombre:"Flexiones", series:"4", reps:"15-20", descanso:"60s", peso:"", color:"", video:"" },
     { id:"c4", nombre:"Sentadilla pistol asistida", series:"3", reps:"8 c/l", descanso:"60s", peso:"", color:"", video:"" },
     { id:"c5", nombre:"Plancha", series:"3", reps:"45s", descanso:"60s", peso:"", color:"", video:"" }
   ]}}},
-  acond_fisico: { id:"acond_fisico", nombre: "Acond. Físico", cantidadDias:1, dias: { dia1: { id:"dia1", nombre:"Día 1", ejercicios: [
+  acond_fisico: { id:"acond_fisico", nombre: "Acond. Físico", cantidadDias: 1, dias: { dia1: { nombre:"Día 1", ejercicios: [
     { id:"a1", nombre:"Burpees", series:"4", reps:"15", descanso:"60s", peso:"", color:"", video:"" },
     { id:"a2", nombre:"Jumping Jacks", series:"4", reps:"40s", descanso:"45s", peso:"", color:"", video:"" },
     { id:"a3", nombre:"Mountain Climbers", series:"3", reps:"30s", descanso:"45s", peso:"", color:"", video:"" },
     { id:"a4", nombre:"Sentadilla con salto", series:"4", reps:"15", descanso:"60s", peso:"", color:"", video:"" },
     { id:"a5", nombre:"Abdominales bicicleta", series:"3", reps:"20", descanso:"45s", peso:"", color:"", video:"" }
   ]}}},
-  full_body: { id:"full_body", nombre: "Full Body (1 día)", cantidadDias:1, dias: { dia1: { id:"dia1", nombre:"Día 1 - Full", ejercicios: [
-    { id:"f1", nombre:"Sentadilla", series:"4", reps:"10", descanso:"90s", peso:"", color:"", video:"" },
-    { id:"f2", nombre:"Press banca", series:"4", reps:"10", descanso:"90s", peso:"", color:"", video:"" },
-    { id:"f3", nombre:"Peso muerto", series:"3", reps:"8", descanso:"90s", peso:"", color:"", video:"" }
+  full_body: { id:"full_body", nombre: "Full Body", cantidadDias: 1, dias: { dia1: { nombre:"Día 1", ejercicios: [
+    { id:"f1", nombre:"Sentadilla con barra", series:"4", reps:"10", descanso:"90s", peso:"20", color:"", video:"" },
+    { id:"f2", nombre:"Press banca", series:"4", reps:"8-10", descanso:"90s", peso:"15", color:"", video:"" },
+    { id:"f3", nombre:"Peso muerto", series:"3", reps:"8", descanso:"120s", peso:"30", color:"", video:"" },
+    { id:"f4", nombre:"Remo con barra", series:"3", reps:"10", descanso:"90s", peso:"15", color:"", video:"" },
+    { id:"f5", nombre:"Press militar", series:"3", reps:"10", descanso:"90s", peso:"10", color:"", video:"" }
   ]}}},
-  hipertrofia_5x: { id:"hipertrofia_5x", nombre: "Hipertrofia 5 días", cantidadDias:5, dias: {
-    dia1: { id:"dia1", nombre:"Día 1 - Pecho", ejercicios: [{ id:"h1", nombre:"Press banca", series:"4", reps:"8-12", descanso:"90s", color:"", video:"" }]},
-    dia2: { id:"dia2", nombre:"Día 2 - Espalda", ejercicios: [{ id:"h2", nombre:"Remo", series:"4", reps:"10", descanso:"90s", color:"", video:"" }]},
-    dia3: { id:"dia3", nombre:"Día 3 - Piernas", ejercicios: [{ id:"h3", nombre:"Sentadilla", series:"4", reps:"10", descanso:"90s", color:"", video:"" }]},
-    dia4: { id:"dia4", nombre:"Día 4 - Hombros", ejercicios: [{ id:"h4", nombre:"Press militar", series:"4", reps:"12", descanso:"60s", color:"", video:"" }]},
-    dia5: { id:"dia5", nombre:"Día 5 - Brazos", ejercicios: [{ id:"h5", nombre:"Curl + Tríceps", series:"4", reps:"12", descanso:"60s", color:"amarillo", video:"" }]}
-  }}
+  hipertrofia_sup: { id:"hipertrofia_sup", nombre: "Hipertrofia Superior", cantidadDias: 1, dias: { dia1: { nombre:"Día 1", ejercicios: [
+    { id:"h1", nombre:"Press banca plano", series:"4", reps:"8-10", descanso:"90s", peso:"15", color:"", video:"" },
+    { id:"h2", nombre:"Remo con mancuerna", series:"4", reps:"10-12", descanso:"75s", peso:"12", color:"", video:"" },
+    { id:"h3", nombre:"Press militar mancuernas", series:"3", reps:"10", descanso:"75s", peso:"8", color:"", video:"" },
+    { id:"h4", nombre:"Jalón al pecho", series:"3", reps:"12", descanso:"60s", peso:"25", color:"", video:"" },
+    { id:"h5", nombre:"Curl de bíceps", series:"3", reps:"12", descanso:"45s", peso:"8", color:"amarillo", video:"" },
+    { id:"h6", nombre:"Extensión de tríceps", series:"3", reps:"12", descanso:"45s", peso:"8", color:"amarillo", video:"" }
+  ]}}},
+  piernas_gluteos: { id:"piernas_gluteos", nombre: "Piernas y Glúteos", cantidadDias: 1, dias: { dia1: { nombre:"Día 1", ejercicios: [
+    { id:"p1", nombre:"Sentadilla profunda", series:"4", reps:"10-12", descanso:"90s", peso:"20", color:"", video:"" },
+    { id:"p2", nombre:"Peso muerto rumano", series:"4", reps:"10", descanso:"90s", peso:"25", color:"", video:"" },
+    { id:"p3", nombre:"Zancadas caminando", series:"3", reps:"12 c/l", descanso:"60s", peso:"10", color:"", video:"" },
+    { id:"p4", nombre:"Hip thrust", series:"4", reps:"12-15", descanso:"75s", peso:"30", color:"", video:"" },
+    { id:"p5", nombre:"Extensión de cuádriceps", series:"3", reps:"15", descanso:"45s", peso:"15", color:"azul", video:"" },
+    { id:"p6", nombre:"Curl femoral", series:"3", reps:"12", descanso:"45s", peso:"12", color:"azul", video:"" }
+  ]}}}
 };
-
 
 // Orden estable de las claves de día (dia1, dia2, dia3...) para pestañas y previews.
 function ordenarClavesDias(dias){

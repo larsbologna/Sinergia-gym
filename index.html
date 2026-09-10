@@ -1328,40 +1328,52 @@
     </div>
 
     <!-- ============ ADMIN: AGREGAR RUTINA (desde el banco) ============ -->
-    <div class="modal-overlay" id="addRoutineModal">
-      <div class="modal-box" style="max-width:640px;">
+    <!-- ============ ADMIN: EDITAR / CREAR PLANTILLA (con días) ============ -->
+    <div class="modal-overlay" id="editPlantillaModal">
+      <div class="modal-box" style="max-width:680px;">
         <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px;">
-          <h3 style="margin:0;" id="rtTituloModal">Asignar rutina<span id="arNombreAlumnoTag" style="color:var(--off-dim);font-weight:400;"></span></h3>
-          <span style="cursor:pointer;color:var(--off-dim);" onclick="cancelarAsignacionRutina()">✕</span>
+          <h3 style="margin:0;" id="epTituloModal">Editar plantilla</h3>
+          <span style="cursor:pointer;color:var(--off-dim);" onclick="cancelarEdicionPlantilla()">✕</span>
         </div>
 
-        <div id="rtSelectorPlantillaWrap">
-          <label style="font-size:.76rem;color:var(--off-dim);display:block;margin-bottom:6px;">Plantilla</label>
-          <select id="rtPlantillasTabs" onchange="seleccionarPlantilla(this.value === '__todas__' ? null : this.value)" style="width:100%;background:var(--carbon);border:1px solid rgba(242,237,228,.16);border-radius:8px;padding:11px 12px;color:var(--off);margin-bottom:16px;"></select>
-        </div>
-
-        <div class="grid grid-2" style="gap:10px;margin-bottom:16px;" id="rtCamposAlumnoWrap">
-          <div><label>Nombre de la rutina</label><input type="text" id="rtNombreRutina" placeholder="Ej: Full Body"></div>
-          <div><label>Día de la semana</label>
-            <select id="rtDia" style="width:100%;background:var(--carbon);border:1px solid rgba(242,237,228,.16);border-radius:8px;padding:11px 12px;color:var(--off);">
-              <option value="">Sin día fijo</option>
-              <option value="L">Lunes</option><option value="M">Martes</option><option value="X">Miércoles</option>
-              <option value="J">Jueves</option><option value="V">Viernes</option><option value="S">Sábado</option><option value="D">Domingo</option>
+        <div class="grid grid-2" style="gap:10px;margin-bottom:16px;">
+          <div><label>Nombre de la plantilla</label><input type="text" id="epNombre" placeholder="Ej: Full Body 3 veces"></div>
+          <div><label>Cantidad de días</label>
+            <select id="epCantidadDias" onchange="handleCambiarCantidadDias()" style="width:100%;background:var(--carbon);border:1px solid rgba(242,237,228,.16);border-radius:8px;padding:11px 12px;color:var(--off);">
+              <option value="2">2 días</option><option value="3">3 días</option><option value="4">4 días</option>
+              <option value="5">5 días</option><option value="6">6 días</option>
             </select>
           </div>
         </div>
 
-        <label style="font-size:.76rem;color:var(--off-dim);display:block;margin-bottom:6px;">Ejercicios</label>
-        <div id="rtListaEjercicios" style="display:flex;flex-direction:column;gap:10px;margin-bottom:14px;max-height:320px;overflow-y:auto;"></div>
+        <div id="epDiasContainer" style="display:flex;flex-direction:column;gap:16px;max-height:420px;overflow-y:auto;margin-bottom:14px;"></div>
 
-        <div style="position:relative;margin-bottom:16px;">
-          <span class="btn btn-ghost btn-small" onclick="toggleBuscadorEjercicioPlantilla()">+ Agregar ejercicio</span>
-          <div id="rtBuscadorPanel" style="display:none;position:absolute;bottom:100%;left:0;right:0;z-index:20;background:var(--carbon);border:1px solid rgba(242,237,228,.2);border-radius:8px;margin-bottom:6px;max-height:220px;overflow-y:auto;box-shadow:0 -8px 24px rgba(0,0,0,.4);"></div>
+        <button type="button" class="btn btn-ghost btn-small" style="margin-bottom:16px;" onclick="agregarDiaPlantilla()">+ Agregar día</button>
+
+        <div class="auth-error" id="epError"></div>
+        <div style="display:flex;gap:10px;flex-wrap:wrap;border-top:1px solid rgba(242,237,228,.12);padding-top:16px;">
+          <button type="button" class="btn btn-solid btn-small" onclick="guardarPlantillaCompleta()">Guardar plantilla</button>
+          <button type="button" class="btn btn-ghost btn-small" onclick="cancelarEdicionPlantilla()">Cancelar</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- ============ ADMIN: ASIGNAR RUTINA A UN ALUMNO (reemplaza la anterior) ============ -->
+    <div class="modal-overlay" id="assignRoutineModal">
+      <div class="modal-box" style="max-width:520px;">
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px;">
+          <h3 style="margin:0;">Asignar rutina<span id="arNombreAlumnoTag" style="color:var(--off-dim);font-weight:400;"></span></h3>
+          <span style="cursor:pointer;color:var(--off-dim);" onclick="cancelarAsignacionRutina()">✕</span>
         </div>
 
-        <div class="auth-error" id="rtError"></div>
+        <label style="font-size:.76rem;color:var(--off-dim);display:block;margin-bottom:6px;">Elegí UNA plantilla (reemplaza la que tenga asignada)</label>
+        <select id="arPlantillaSelect" onchange="handleArPlantillaChange()" style="width:100%;background:var(--carbon);border:1px solid rgba(242,237,228,.16);border-radius:8px;padding:11px 12px;color:var(--off);margin-bottom:16px;"></select>
+
+        <div id="arPreview" style="background:rgba(255,255,255,.04);border-radius:8px;padding:14px;margin-bottom:16px;font-size:.85rem;"></div>
+
+        <div class="auth-error" id="arError"></div>
         <div style="display:flex;gap:10px;flex-wrap:wrap;border-top:1px solid rgba(242,237,228,.12);padding-top:16px;">
-          <button type="button" class="btn btn-solid btn-small" onclick="guardarRutinaAlumno()" id="rtBotonGuardar">Guardar rutina<span id="rtGuardarNombreTag"></span></button>
+          <button type="button" class="btn btn-solid btn-small" id="arBotonAsignar" onclick="confirmarAsignarPlantilla()">Asignar esta única plantilla (reemplaza la anterior)</button>
           <button type="button" class="btn btn-ghost btn-small" onclick="cancelarAsignacionRutina()">Cancelar</button>
         </div>
       </div>
@@ -1788,11 +1800,19 @@ const STUDENTS = NAMES.map((name, i) => {
   const completion = seededPct(i + 3);
   const attendance = seededPct(i + 7) > 96 ? 88 : seededPct(i + 7);
   const weightHistory = [78,77,76.4,75.8,75.1,74.5].map(w => w - i*0.3);
-  const routines = ROUTINE_TEMPLATE.slice(0, 3 + (i % 3)).map((r, ri) => ({
-    name: r.name,
-    progress: (completion + ri*11) % 100,
-    exercises: r.exercises.map((e, ei) => ({...e, done: (i+ri+ei) % 3 !== 0}))
-  }));
+  const cantDiasDemo = 2 + (i % 3); // entre 2 y 4 días, variado por alumno
+  const diasElegidos = ROUTINE_TEMPLATE.slice(0, cantDiasDemo);
+  const dias = {};
+  diasElegidos.forEach((r, ri) => {
+    dias['dia' + (ri+1)] = {
+      nombre: r.name,
+      ejercicios: r.exercises.map((e, ei) => ({
+        id: 'demo-' + i + '-' + ri + '-' + ei, nombre: e.ex, series: String(e.sets), reps: e.reps,
+        descanso: '60s', peso: '', color: '', video: '', done: (i+ri+ei) % 3 !== 0
+      }))
+    };
+  });
+  const rutinaActiva = { id: 'demo-plan-' + i, nombre: 'Plan de ' + name.split(' ')[0], cantidadDias: diasElegidos.length, dias };
   return {
     id:i, name, initials: name.split(' ').map(p=>p[0]).join(''),
     color: AVATAR_COLORS[i % AVATAR_COLORS.length],
@@ -1804,7 +1824,7 @@ const STUDENTS = NAMES.map((name, i) => {
     joinDate: `${(i%12)+1}/${2023 - (i%3)}`,
     membership: quota === 'bad' ? 'Suspendida' : 'Activa',
     attendance, completion, workouts: 30 + i*4, goalsReached: 1 + (i % 4),
-    weightHistory, routines,
+    weightHistory, rutinaActiva, sessions: [], caloriesTotal: 0,
   };
 });
 
@@ -2230,16 +2250,16 @@ const MET_BY_GOAL = {
 };
 function metForGoal(goal){ return MET_BY_GOAL[goal] || MET_BY_GOAL['Sin definir']; }
 
-function estimateSessionStats(s, ri){
-  const routine = s.routines[ri];
+function estimateSessionStats(s, diaKey){
+  const dia = s.rutinaActiva.dias[diaKey];
   let durationMin;
   if(wpState && wpState.sid === s.id && wpState.startedAt){
     durationMin = Math.max(1, Math.round((Date.now() - wpState.startedAt) / 60000));
   }else{
     // Sin el modo entrenamiento guiado no hay tiempo real medido: estimamos ~35s activos por serie + el descanso configurado.
-    const segundosEstimados = routine.exercises.reduce((acc, ex) => {
-      const sets = parseInt(ex.sets, 10) || 1;
-      const rest = ex.rest || 30;
+    const segundosEstimados = dia.ejercicios.reduce((acc, ex) => {
+      const sets = parseInt(ex.series, 10) || 1;
+      const rest = parseDescansoASegundos(ex.descanso) || 30;
       return acc + sets * (35 + rest);
     }, 0);
     durationMin = Math.max(1, Math.round(segundosEstimados / 60));
@@ -2262,7 +2282,7 @@ function normalizeStudentData(uid, data){
     joinDate: data.joinDate || '', plan: data.plan || 'Sin asignar',
     membership: frozen ? 'Congelada' : (data.plan ? 'Activa' : 'Pendiente'),
     quota: computeQuotaStatus(due, frozen), due, cuotaInicio, amount: data.amount || 0,
-    completion: data.completion || 0, routines: data.routines || [],
+    completion: data.completion || 0, rutinaActiva: data.rutinaActiva || null,
     weightHistory: (data.weightHistory && data.weightHistory.length) ? data.weightHistory : [data.weight || 0],
     workouts: data.workouts || 0, goalsReached: data.goalsReached || 0, frozen,
     caloriesTotal: data.caloriesTotal || 0,
@@ -2397,31 +2417,46 @@ function initAuthListener(){
   // ===== Acceso automático por QR/link (para alumnos que no manejan usuario/contraseña) =====
   function intentarAutoLoginPorLink(){
     const params = new URLSearchParams(location.search);
-    const autoLoginToken = params.get('al');
+    let autoLoginToken = params.get('al');
+    if(!autoLoginToken){
+      autoLoginToken = sessionStorage.getItem('sinergia_pending_al_token');
+    }
     if(!autoLoginToken) return false;
-    history.replaceState({}, '', location.pathname);
-    document.getElementById('publicSite').style.display = 'none';
+    sessionStorage.setItem('sinergia_pending_al_token', autoLoginToken);
+    try{ history.replaceState({}, '', location.pathname); }catch(e){}
+    const publicSite = document.getElementById('publicSite');
+    if(publicSite) publicSite.style.display = 'none';
     const loader = document.getElementById('pwaLoading');
     if(loader) loader.style.display = 'flex';
     try{
-      const { e, p } = JSON.parse(atob(decodeURIComponent(autoLoginToken)));
-      // Pequeño delay para asegurar que Firebase ya está listo
-      const hacerLogin = () => window.fb.signInWithEmailAndPassword(window.fb.auth, e, p).catch(err => {
-        console.error('No se pudo entrar con el link automático:', err);
-        if(loader) loader.style.display = 'none';
-        openGate();
-      });
-      if(window.fb && window.fb.auth){ hacerLogin(); } else { window.addEventListener('fbReady', hacerLogin, {once:true}); }
+      const decoded = atob(decodeURIComponent(autoLoginToken));
+      const { e, p } = JSON.parse(decoded);
+      const hacerLogin = () => {
+        if(!window.fb || !window.fb.auth){ setTimeout(hacerLogin, 300); return; }
+        window.fb.signInWithEmailAndPassword(window.fb.auth, e, p)
+          .then(()=>{ sessionStorage.removeItem('sinergia_pending_al_token'); })
+          .catch(err => {
+            console.error('QR login fail:', err);
+            if(err.code === 'auth/invalid-credential' || err.code === 'auth/wrong-password' || err.code === 'auth/user-not-found'){
+              alert('QR no válido. Pedí un QR nuevo o entrá manual con email y contraseña.');
+            }
+            sessionStorage.removeItem('sinergia_pending_al_token');
+            if(loader) loader.style.display = 'none';
+            openGate();
+          });
+      };
+      if(window.fb && window.fb.auth){ hacerLogin(); } else { window.addEventListener('fbReady', hacerLogin, {once:true}); setTimeout(hacerLogin, 1000); }
     }catch(err){
-      console.error('Link de acceso inválido:', err);
+      console.error('Link inválido:', err);
+      sessionStorage.removeItem('sinergia_pending_al_token');
       const loader = document.getElementById('pwaLoading');
       if(loader) loader.style.display = 'none';
       openGate();
     }
     return true;
   }
-  // Intentar al cargar la página
   intentarAutoLoginPorLink();
+  window.addEventListener('focus', ()=>{ if(sessionStorage.getItem('sinergia_pending_al_token')) intentarAutoLoginPorLink(); });
 
   window.fb.onAuthStateChanged(window.fb.auth, async (user) => {
     if(!user){
@@ -2569,7 +2604,7 @@ function logout(){
   window.scrollTo(0,0);
   currentRole = null;
   currentStudentReal = null;
-  currentInicioDia = null;
+  currentMisRutinasDia = null;
   ALUMNOS_REALES = [];
   currentUser = null;
   if(dailyQuotaCheckInterval){ clearInterval(dailyQuotaCheckInterval); dailyQuotaCheckInterval = null; }
@@ -2642,11 +2677,13 @@ function renderConfigPlantillasGrid(){
   }
   cont.innerHTML = claves.map(k => {
     const p = RUTINAS_PLANTILLAS[k];
+    const cantDias = ordenarClavesDias(p.dias).length;
+    const totalEj = totalEjerciciosPlantilla(p);
     return `
-      <div style="display:flex;justify-content:space-between;align-items:center;background:rgba(255,255,255,.04);border-radius:8px;padding:10px 14px;">
-        <div><strong style="font-size:.88rem;">${p.nombre}</strong><span style="font-size:.76rem;color:var(--off-dim);margin-left:8px;">${p.ejercicios.length} ejercicio${p.ejercicios.length===1?'':'s'}</span></div>
+      <div style="display:flex;justify-content:space-between;align-items:center;background:rgba(255,255,255,.04);border-radius:8px;padding:10px 14px;flex-wrap:wrap;gap:8px;">
+        <div><strong style="font-size:.88rem;">${p.nombre}</strong><span style="font-size:.76rem;color:var(--off-dim);margin-left:8px;">${cantDias} día${cantDias===1?'':'s'} · ${totalEj} ejercicio${totalEj===1?'':'s'}</span></div>
         <div style="display:flex;gap:6px;">
-          <span class="btn btn-ghost btn-small" onclick="editarPlantillaDesdeConfig('${k}')">📝 Editar ejercicios</span>
+          <span class="btn btn-ghost btn-small" onclick="editarPlantillaDesdeConfig('${k}')">📝 Editar</span>
           <span class="btn btn-ghost btn-small" onclick="renombrarPlantillaDesdeConfig('${k}')">✏️ Renombrar</span>
           <span class="btn btn-ghost btn-small" onclick="borrarPlantillaDesdeConfig('${k}')">🗑️ Borrar</span>
         </div>
@@ -2665,14 +2702,14 @@ async function crearPlantillaVaciaDesdeConfig(){
 }
 
 async function crearPlantillaVaciaSinAbrirModal(){
-  const nombre = prompt('Nombre de la nueva plantilla (ej: "Espalda y bíceps"):');
+  const nombre = prompt('Nombre de la nueva plantilla (ej: "Full Body 3 veces"):');
   if(!nombre || !nombre.trim()) return;
   const existente = Object.values(RUTINAS_PLANTILLAS).some(p => p.nombre.trim().toLowerCase() === nombre.trim().toLowerCase());
   if(existente){ alert('Ya existe una plantilla con ese nombre.'); return; }
   const key = 'custom_' + nombre.trim().toLowerCase().replace(/[^a-z0-9]+/g, '_').slice(0, 40) + '_' + Date.now();
-  RUTINAS_PLANTILLAS[key] = { nombre: nombre.trim(), ejercicios: [] };
+  RUTINAS_PLANTILLAS[key] = { id: key, nombre: nombre.trim(), cantidadDias: 2, dias: { dia1: crearDiaVacio('Día 1'), dia2: crearDiaVacio('Día 2') } };
   await guardarPlantillasEnStorage();
-  alert('✅ Plantilla "' + nombre.trim() + '" creada. Para cargarle ejercicios, abrí "Asignar rutina" en el perfil de cualquier alumno y seleccionala.');
+  alert('✅ Plantilla "' + nombre.trim() + '" creada con 2 días vacíos. Para cargarle ejercicios, tocá "📝 Editar".');
 }
 
 async function borrarPlantillaDesdeConfig(key){
@@ -2690,6 +2727,7 @@ function renderEditEjerciciosGrid(){
       <select data-idx="${i}" data-field="group" style="flex:1;min-width:120px;background:var(--black);border:1px solid rgba(242,237,228,.16);border-radius:8px;padding:8px;color:var(--off);">
         ${grupos.map(g => `<option value="${g}" ${((e.group||'Otros')===g)?'selected':''}>${g}</option>`).join('')}
       </select>
+      <input type="url" data-idx="${i}" data-field="video" value="${e.video || ''}" placeholder="Link de YouTube (opcional)" style="flex:2;min-width:180px;background:var(--black);border:1px solid rgba(242,237,228,.16);border-radius:8px;padding:8px;color:var(--off);">
       <span style="cursor:pointer;color:var(--off-dim);padding:6px;" onclick="handleRemoveExerciseBankItem(${i})">✕</span>
     </div>
   `).join('') + `
@@ -2697,7 +2735,7 @@ function renderEditEjerciciosGrid(){
   `;
 }
 function handleAddExerciseBankItem(){
-  EXERCISE_BANK.push({ id: 'ex-nuevo-' + Date.now(), name: 'Nuevo ejercicio', group: 'Otros' });
+  EXERCISE_BANK.push({ id: 'ex-nuevo-' + Date.now(), name: 'Nuevo ejercicio', group: 'Otros', video: '' });
   renderEditEjerciciosGrid();
 }
 function handleRemoveExerciseBankItem(i){
@@ -2949,9 +2987,15 @@ function filterIngresos(f, el){
 
 function mostrarQrAcceso(uid){
   const s = ALUMNOS_REALES.find(a => a.id === uid);
-  if(!s || !s.accessPass) return;
+  if(!s){ alert('Alumno no encontrado'); return; }
+  if(!s.accessPass){
+    alert('Este alumno no tiene contraseña guardada. Borralo y crealo de nuevo desde + Agregar alumno.');
+    return;
+  }
   const token = btoa(JSON.stringify({ e: s.email, p: s.accessPass }));
   const linkAcceso = `${location.origin}${location.pathname}?al=${encodeURIComponent(token)}`;
+  const modalHTML = `
+    <div class="modal-overlay activ${location.pathname}?al=${encodeURIComponent(token)}`;
   const modalHTML = `
     <div class="modal-overlay active" id="qrAccesoModalDinamico" onclick="if(event.target===this) this.remove();">
       <div class="modal-box" style="text-align:center;">
@@ -3030,83 +3074,91 @@ function renderProfile(uid){
     </div>
     <div class="card">
       <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:4px;">
-        <h4 style="margin:0;">Rutinas asignadas</h4>
-        <button class="btn btn-solid btn-small" onclick="handleAddRoutine('${s.id}')">+ Asignar rutina</button>
+        <h4 style="margin:0;">Rutina asignada</h4>
+        <button class="btn btn-solid btn-small" onclick="handleAddRoutine('${s.id}')">${s.rutinaActiva ? '🔄 Cambiar rutina' : '+ Asignar rutina'}</button>
       </div>
-      ${(!s.routines || !s.routines.length) ? '<p style="font-size:.85rem;color:var(--off-dim);">Todavía no tiene una rutina asignada.</p>' : renderRoutinesGroupedByDay(s, true, 'admin')}
+      ${!s.rutinaActiva ? '<p style="font-size:.85rem;color:var(--off-dim);">Todavía no tiene una rutina asignada.</p>' : renderRutinaActivaAdmin(s)}
     </div>
   `;
 }
 
-// Agrupa rutinas por día de la semana y arma separadores entre grupos.
-// isAdmin=true muestra los controles de editar/eliminar; isAdmin=false es la vista del alumno.
-const DAY_COLORS = { L:'#0049CD', M:'#0049CD', X:'#0049CD', J:'#0049CD', V:'#0049CD', S:'#0049CD', D:'#0049CD' };
+const COLOR_HEX_SUPERSET = { rojo:'#e0574a', amarillo:'#e0a53f', azul:'#0049CD', verde:'#3fae6a', violeta:'#8a5cf6' };
 
-function renderRoutineCardHTML(s, r, ri, isAdmin, ctx){
-  ctx = ctx || 'r';
-  const hoy = getTodayCode();
-  const color = r.day ? DAY_COLORS[r.day] : '#6b6b6b';
-  const esHoy = r.day === hoy;
+function renderRutinaActivaAdmin(s){
+  const claves = ordenarClavesDias(s.rutinaActiva.dias);
   return `
-    <div id="${ctx}-routine-${ri}" style="margin-bottom:20px;border-radius:12px;overflow:hidden;border:1px solid ${color}55;${esHoy ? `box-shadow:0 0 0 1px ${color}, 0 0 24px 2px ${color}66;` : ''}">
+    <p style="font-size:.85rem;margin-bottom:14px;"><strong>${s.rutinaActiva.nombre}</strong> — ${claves.length} día${claves.length===1?'':'s'}</p>
+    ${claves.map(dk => renderDiaCardHTML(s, dk, true, 'admin')).join('')}
+  `;
+}
+
+// Agrupa los ejercicios de un día por color (superset) y arma el bloque completo del día.
+// isAdmin=true muestra los controles de editar/eliminar; isAdmin=false es la vista del alumno.
+function renderDiaCardHTML(s, diaKey, isAdmin, ctx){
+  ctx = ctx || 'r';
+  const dia = s.rutinaActiva.dias[diaKey];
+  if(!dia) return '';
+  const ejercicios = dia.ejercicios || [];
+  const total = ejercicios.length;
+  const hechos = ejercicios.filter(e => e.done).length;
+  const progreso = total ? Math.round(hechos/total*100) : 0;
+  const color = '#0049CD';
+
+  // Agrupamos ejercicios consecutivos que comparten el mismo color (superset).
+  const grupos = [];
+  ejercicios.forEach((e, ei) => {
+    const ultimo = grupos[grupos.length-1];
+    if(e.color && ultimo && ultimo.color === e.color){ ultimo.items.push({e,ei}); }
+    else{ grupos.push({ color: e.color || '', items: [{e,ei}] }); }
+  });
+
+  return `
+    <div id="${ctx}-dia-${diaKey}" style="margin-bottom:20px;border-radius:12px;overflow:hidden;border:1px solid ${color}55;">
       <div style="background:linear-gradient(100deg, ${color}33, ${color}0d);padding:12px 16px;display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap;border-bottom:2px solid ${color};">
-        <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;">
-          <span style="background:${color};color:#fff;font-size:.72rem;font-weight:800;letter-spacing:.1em;text-transform:uppercase;padding:5px 12px;border-radius:20px;box-shadow:0 0 14px 1px ${color}aa;">${r.day ? DAY_NAMES[r.day] : 'Sin día fijo'}</span>
-          <strong style="font-size:1rem;">${r.name}</strong>
-          ${esHoy ? '<span class="badge ok">Hoy</span>' : ''}
-        </div>
-        <div class="routine-actions" style="display:flex;align-items:center;gap:10px;flex-shrink:0;">
-          <span style="font-size:.78rem;color:var(--off-dim);" id="${ctx}-rprog-${ri}">${r.progress}% completado</span>
-          ${!isAdmin && r.exercises.length ? `<span class="btn btn-solid btn-small routine-start-btn" style="padding:6px 14px;font-size:.74rem;" onclick="startWorkout('${s.id}',${ri})">▶ Iniciar rutina</span>` : ''}
-          ${isAdmin ? `
-            <span style="font-size:.8rem;cursor:pointer;" onclick="handleEditRoutineName('${s.id}',${ri})" title="Editar rutina">✏️</span>
-            <span style="font-size:.8rem;cursor:pointer;" onclick="handleDeleteRoutine('${s.id}',${ri})" title="Eliminar rutina">🗑</span>
-          ` : ''}
+        <strong style="font-size:1rem;">${dia.nombre}</strong>
+        <div style="display:flex;align-items:center;gap:10px;flex-shrink:0;">
+          <span style="font-size:.78rem;color:var(--off-dim);" id="${ctx}-rprog-${diaKey}">${progreso}% completado</span>
+          ${!isAdmin && total ? `<span class="btn btn-solid btn-small routine-start-btn" style="padding:6px 14px;font-size:.74rem;" onclick="startWorkout('${s.id}','${diaKey}')">▶ Iniciar rutina</span>` : ''}
         </div>
       </div>
       <div style="padding:14px 16px;">
-        <div class="pbar" style="margin-bottom:12px;"><div id="${ctx}-rbar-${ri}" style="width:${r.progress}%;background:${color};"></div></div>
-        ${r.exercises.map((e,ei)=>`
-          <div style="padding:14px 0;border-bottom:1px solid rgba(242,237,228,.12);">
-            <div class="exercise" style="border:none;padding:0;">
-              <div class="info"><h5>${e.ex}</h5><span>${e.sets} series × ${e.reps}${e.weight ? ` · ${e.weight}kg sugerido` : ''}${e.lastWeight ? ` · Último: ${e.lastWeight}kg` : ''}</span></div>
-              <div class="status" style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;">
-                ${e.video ? `<a href="${e.video}" target="_blank" rel="noopener" style="font-size:.76rem;color:${color};font-weight:600;">▶ Ver video</a>` : ''}
-                ${isAdmin ? (e.done ? '<span class="badge ok">Completado</span>' : '<span class="badge warn">Pendiente</span>') : `
-                  <label class="check ${e.done?'done':''}" id="${ctx}-chk-${ri}-${ei}" onclick="toggleExercise('${s.id}',${ri},${ei})">
-                    <span class="box"></span>${e.done ? 'Completado' : 'Marcar hecho'}
-                  </label>
-                `}
-              </div>
-            </div>
-            ${isAdmin ? `
-              <div style="display:flex;align-items:center;gap:18px;margin-top:10px;padding-top:8px;border-top:1px dashed rgba(242,237,228,.10);flex-wrap:wrap;">
-                <span style="font-size:.74rem;color:var(--forge);font-weight:600;cursor:pointer;" onclick="handleSetVideo('${s.id}',${ri},${ei})">${e.video ? '✎ Editar video' : '+ Agregar video'}</span>
-                ${e.video ? `<span style="font-size:.74rem;color:var(--off-dim);cursor:pointer;" onclick="handleDeleteVideo('${s.id}',${ri},${ei})">Quitar video</span>` : ''}
-                <span style="font-size:.74rem;color:var(--off-dim);cursor:pointer;" onclick="handleEditExercise('${s.id}',${ri},${ei})">✏️ Editar ejercicio</span>
-                <span style="font-size:.74rem;color:#e0574a;cursor:pointer;margin-left:auto;" onclick="handleDeleteExercise('${s.id}',${ri},${ei})">🗑 Eliminar</span>
-              </div>
-            ` : ''}
-          </div>`).join('')}
-        ${isAdmin ? `<div style="margin-top:8px;"><span class="btn btn-solid btn-small" style="padding:7px 14px;font-size:.74rem;" onclick="handleAddExercise('${s.id}',${ri})">+ Agregar ejercicio</span></div>` : ''}
+        <div class="pbar" style="margin-bottom:12px;"><div id="${ctx}-rbar-${diaKey}" style="width:${progreso}%;background:${color};"></div></div>
+        ${grupos.map(grupo => {
+          const esSuperset = grupo.items.length > 1;
+          const borde = grupo.color ? (COLOR_HEX_SUPERSET[grupo.color] || color) : 'transparent';
+          return `
+          <div style="${esSuperset ? `border-left:4px solid ${borde};padding-left:12px;margin-bottom:10px;background:${borde}11;border-radius:0 8px 8px 0;` : ''}">
+            ${esSuperset ? `<p style="font-size:.7rem;text-transform:uppercase;letter-spacing:.08em;color:${borde};font-weight:700;padding-top:8px;">Superset</p>` : ''}
+            ${grupo.items.map(({e,ei}) => { const videoMostrar = e.videoOverride || e.video || getVideoDelBanco(e.nombre); return `
+              <div style="padding:14px 0;border-bottom:1px solid rgba(242,237,228,.12);">
+                <div class="exercise" style="border:none;padding:0;">
+                  <div class="info"><h5>${e.nombre}</h5><span>${e.series} series × ${e.reps}${e.peso ? ` · ${e.peso}kg sugerido` : ''}</span></div>
+                  <div class="status" style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;">
+                    ${videoMostrar ? `<a href="${videoMostrar}" target="_blank" rel="noopener" style="font-size:.76rem;color:${color};font-weight:600;">▶ Ver video</a>` : ''}
+                    ${isAdmin ? (e.done ? '<span class="badge ok">Completado</span>' : '<span class="badge warn">Pendiente</span>') : `
+                      <label class="check ${e.done?'done':''}" id="${ctx}-chk-${diaKey}-${ei}" onclick="toggleExercise('${s.id}','${diaKey}',${ei})">
+                        <span class="box"></span>${e.done ? 'Completado' : 'Marcar hecho'}
+                      </label>
+                    `}
+                  </div>
+                </div>
+                ${isAdmin ? `
+                  <div style="display:flex;align-items:center;gap:18px;margin-top:10px;padding-top:8px;border-top:1px dashed rgba(242,237,228,.10);flex-wrap:wrap;">
+                    <span style="font-size:.74rem;color:var(--forge);font-weight:600;cursor:pointer;" onclick="handleSetVideo('${s.id}','${diaKey}',${ei})" title="Poné un video distinto solo para este alumno">${e.videoOverride ? '✎ Editar video (solo este alumno)' : '+ Video distinto para este alumno'}</span>
+                    ${e.videoOverride ? `<span style="font-size:.74rem;color:var(--off-dim);cursor:pointer;" onclick="handleDeleteVideo('${s.id}','${diaKey}',${ei})">Quitar (usar el del banco)</span>` : ''}
+                    <span style="font-size:.74rem;color:var(--off-dim);cursor:pointer;" onclick="handleEditExercise('${s.id}','${diaKey}',${ei})">✏️ Editar ejercicio</span>
+                    <span style="font-size:.74rem;color:#e0574a;cursor:pointer;margin-left:auto;" onclick="handleDeleteExercise('${s.id}','${diaKey}',${ei})">🗑 Eliminar</span>
+                  </div>
+                ` : ''}
+              </div>`;}).join('')}
+          </div>`;
+        }).join('')}
+        ${isAdmin ? `<div style="margin-top:8px;"><span class="btn btn-solid btn-small" style="padding:7px 14px;font-size:.74rem;" onclick="handleAddExercise('${s.id}','${diaKey}')">+ Agregar ejercicio</span></div>` : ''}
       </div>
     </div>`;
 }
 
-function renderRoutinesGroupedByDay(s, isAdmin, ctx){
-  const DAY_ORDER = ['L','M','X','J','V','S','D', null];
-  const sorted = s.routines.map((r,ri)=>({r,ri})).sort((a,b)=> DAY_ORDER.indexOf(a.r.day) - DAY_ORDER.indexOf(b.r.day));
-  return sorted.map(({r,ri}) => renderRoutineCardHTML(s, r, ri, isAdmin, ctx)).join('');
-}
-
-async function saveStudentRoutines(uid, routines){
-  await window.fb.setDoc(window.fb.doc(window.fb.db, 'users', uid), { routines }, { merge: true });
-  await loadAlumnosReales();
-  renderProfile(uid);
-}
-
-const DAY_NAMES = { L:'Lunes', M:'Martes', X:'Miércoles', J:'Jueves', V:'Viernes', S:'Sábado', D:'Domingo' };
-const DAY_BY_JS_INDEX = ['D','L','M','X','J','V','S']; // Date.getDay(): 0=domingo..6=sábado
+const DAY_BY_JS_INDEX = ['D','L','M','X','J','V','S']; // Date.getDay(): 0=domingo..6=sábado — usado por la racha semanal
 function getMondayISO(date){
   const d = new Date(date);
   d.setHours(0,0,0,0);
@@ -3121,72 +3173,99 @@ function getMondayISO(date){
 async function resetRoutinesIfNewWeek(s){
   const mondayActual = getMondayISO(new Date());
   if(s.routinesWeekStart === mondayActual) return false;
-  const huboAlgoMarcado = (s.routines || []).some(r => r.exercises.some(e => e.done));
-  s.routines = (s.routines || []).map(r => ({ ...r, exercises: r.exercises.map(e => ({ ...e, done: false })), progress: 0 }));
+  if(!s.rutinaActiva){ s.routinesWeekStart = mondayActual; return false; }
+  ordenarClavesDias(s.rutinaActiva.dias).forEach(dk => {
+    s.rutinaActiva.dias[dk].ejercicios.forEach(e => { e.done = false; });
+  });
   s.completion = 0;
   s.routinesWeekStart = mondayActual;
-  if(huboAlgoMarcado || true){ // igual actualizamos la marca de semana aunque no hubiera nada tildado
-    try{
-      await window.fb.setDoc(window.fb.doc(window.fb.db, 'users', s.id), {
-        routines: s.routines, completion: s.completion, routinesWeekStart: s.routinesWeekStart
-      }, { merge: true });
-    }catch(err){ console.error('No se pudo resetear la rutina semanal:', err); }
-  }
+  try{
+    await window.fb.setDoc(window.fb.doc(window.fb.db, 'users', s.id), {
+      rutinaActiva: s.rutinaActiva, completion: s.completion, routinesWeekStart: s.routinesWeekStart
+    }, { merge: true });
+  }catch(err){ console.error('No se pudo resetear la rutina semanal:', err); }
   return true;
-}
-
-function getTodayCode(){ return DAY_BY_JS_INDEX[new Date().getDay()]; }
-function askForDay(actual){
-  let dia = prompt('¿Qué día de la semana? (L, M, X, J, V, S, D — o dejalo vacío para "sin día fijo")', actual || '');
-  if(dia === null) return undefined; // canceló
-  dia = dia.trim().toUpperCase();
-  if(!dia) return null; // sin día asignado
-  if(!DAY_NAMES[dia]){ alert('Día no válido. Usá L, M, X, J, V, S o D.'); return askForDay(actual); }
-  return dia;
 }
 
 let addRoutineCtx = null; // uid
 
 // ===== SISTEMA DE PLANTILLAS DE RUTINAS =====
+function crearDiaVacio(nombre){
+  return { nombre: nombre, ejercicios: [] };
+}
+
 const RUTINAS_PLANTILLAS = {
-  calistenia: { nombre: "Calistenia", ejercicios: [
-    { nombre:"Dominadas", series:"4", reps:"8-12", descanso:"90s", peso:"" },
-    { nombre:"Fondos en paralelas", series:"4", reps:"10-15", descanso:"90s", peso:"" },
-    { nombre:"Flexiones", series:"4", reps:"15-20", descanso:"60s", peso:"" },
-    { nombre:"Sentadilla pistol asistida", series:"3", reps:"8 c/l", descanso:"60s", peso:"" },
-    { nombre:"Plancha", series:"3", reps:"45s", descanso:"60s", peso:"" }
-  ]},
-  acond_fisico: { nombre: "Acond. Físico", ejercicios: [
-    { nombre:"Burpees", series:"4", reps:"15", descanso:"60s", peso:"" },
-    { nombre:"Jumping Jacks", series:"4", reps:"40s", descanso:"45s", peso:"" },
-    { nombre:"Mountain Climbers", series:"3", reps:"30s", descanso:"45s", peso:"" },
-    { nombre:"Sentadilla con salto", series:"4", reps:"15", descanso:"60s", peso:"" },
-    { nombre:"Abdominales bicicleta", series:"3", reps:"20", descanso:"45s", peso:"" }
-  ]},
-  full_body: { nombre: "Full Body", ejercicios: [
-    { nombre:"Sentadilla con barra", series:"4", reps:"10", descanso:"90s", peso:"20" },
-    { nombre:"Press banca", series:"4", reps:"8-10", descanso:"90s", peso:"15" },
-    { nombre:"Peso muerto", series:"3", reps:"8", descanso:"120s", peso:"30" },
-    { nombre:"Remo con barra", series:"3", reps:"10", descanso:"90s", peso:"15" },
-    { nombre:"Press militar", series:"3", reps:"10", descanso:"90s", peso:"10" }
-  ]},
-  hipertrofia_sup: { nombre: "Hipertrofia Superior", ejercicios: [
-    { nombre:"Press banca plano", series:"4", reps:"8-10", descanso:"90s", peso:"15" },
-    { nombre:"Remo con mancuerna", series:"4", reps:"10-12", descanso:"75s", peso:"12" },
-    { nombre:"Press militar mancuernas", series:"3", reps:"10", descanso:"75s", peso:"8" },
-    { nombre:"Jalón al pecho", series:"3", reps:"12", descanso:"60s", peso:"25" },
-    { nombre:"Curl de bíceps", series:"3", reps:"12", descanso:"45s", peso:"8" },
-    { nombre:"Extensión de tríceps", series:"3", reps:"12", descanso:"45s", peso:"8" }
-  ]},
-  piernas_gluteos: { nombre: "Piernas y Glúteos", ejercicios: [
-    { nombre:"Sentadilla profunda", series:"4", reps:"10-12", descanso:"90s", peso:"20" },
-    { nombre:"Peso muerto rumano", series:"4", reps:"10", descanso:"90s", peso:"25" },
-    { nombre:"Zancadas caminando", series:"3", reps:"12 c/l", descanso:"60s", peso:"10" },
-    { nombre:"Hip thrust", series:"4", reps:"12-15", descanso:"75s", peso:"30" },
-    { nombre:"Extensión de cuádriceps", series:"3", reps:"15", descanso:"45s", peso:"15" },
-    { nombre:"Curl femoral", series:"3", reps:"12", descanso:"45s", peso:"12" }
-  ]}
+  adaptacion_2x: { id:"adaptacion_2x", nombre: "Plan Adaptación 2 veces", cantidadDias:2, dias: {
+    dia1: { id:"dia1", nombre:"Día 1 - Tren superior", ejercicios: [
+      { id:"ad1", nombre:"Press banca con mancuernas", series:"3", reps:"12", descanso:"60s", peso:"", color:"amarillo", video:"", grupo:"A" },
+      { id:"ad2", nombre:"Remo con mancuerna", series:"3", reps:"12", descanso:"60s", peso:"", color:"amarillo", video:"", grupo:"A" },
+      { id:"ad3", nombre:"Press militar sentado", series:"3", reps:"12", descanso:"60s", peso:"", color:"azul", video:"", grupo:"B" },
+      { id:"ad4", nombre:"Jalón al pecho", series:"3", reps:"12", descanso:"60s", peso:"", color:"azul", video:"", grupo:"B" }
+    ]},
+    dia2: { id:"dia2", nombre:"Día 2 - Tren inferior + Zona media", ejercicios: [
+      { id:"ad5", nombre:"Sentadilla goblet", series:"3", reps:"12", descanso:"60s", peso:"", color:"verde", video:"", grupo:"C" },
+      { id:"ad6", nombre:"Peso muerto rumano", series:"3", reps:"12", descanso:"60s", peso:"", color:"verde", video:"", grupo:"C" },
+      { id:"ad7", nombre:"Plancha", series:"3", reps:"30s", descanso:"45s", peso:"", color:"", video:"", grupo:"" },
+      { id:"ad8", nombre:"Abdominales bicicleta", series:"3", reps:"20", descanso:"45s", peso:"", color:"", video:"", grupo:"" }
+    ]}
+  }},
+  full_body_3x: { id:"full_body_3x", nombre: "Full Body 3 veces", cantidadDias:3, dias: {
+    dia1: { id:"dia1", nombre:"Día 1 - Empuje", ejercicios: [
+      { id:"fb1", nombre:"Sentadilla con barra", series:"4", reps:"10", descanso:"90s", peso:"", color:"", video:"", grupo:"" },
+      { id:"fb2", nombre:"Press banca", series:"4", reps:"8-10", descanso:"90s", peso:"", color:"amarillo", video:"", grupo:"A" },
+      { id:"fb3", nombre:"Press militar", series:"3", reps:"10", descanso:"90s", peso:"", color:"amarillo", video:"", grupo:"A" }
+    ]},
+    dia2: { id:"dia2", nombre:"Día 2 - Tracción", ejercicios: [
+      { id:"fb4", nombre:"Peso muerto", series:"3", reps:"8", descanso:"120s", peso:"", color:"", video:"", grupo:"" },
+      { id:"fb5", nombre:"Dominadas", series:"4", reps:"8-12", descanso:"90s", peso:"", color:"azul", video:"", grupo:"B" },
+      { id:"fb6", nombre:"Remo con barra", series:"3", reps:"10", descanso:"90s", peso:"", color:"azul", video:"", grupo:"B" }
+    ]},
+    dia3: { id:"dia3", nombre:"Día 3 - Completo", ejercicios: [
+      { id:"fb7", nombre:"Hip thrust", series:"4", reps:"12", descanso:"60s", peso:"", color:"", video:"", grupo:"" },
+      { id:"fb8", nombre:"Fondos", series:"3", reps:"10", descanso:"60s", peso:"", color:"verde", video:"", grupo:"C" },
+      { id:"fb9", nombre:"Curl bíceps + Extensión tríceps", series:"3", reps:"12 c/u", descanso:"60s", peso:"", color:"verde", video:"", grupo:"C" }
+    ]}
+  }},
+  calistenia: { id:"calistenia", nombre: "Calistenia", cantidadDias:1, dias: { dia1: { id:"dia1", nombre:"Día 1", ejercicios: [
+    { id:"c1", nombre:"Dominadas", series:"4", reps:"8-12", descanso:"90s", peso:"", color:"", video:"" },
+    { id:"c2", nombre:"Fondos en paralelas", series:"4", reps:"10-15", descanso:"90s", peso:"", color:"", video:"" },
+    { id:"c3", nombre:"Flexiones", series:"4", reps:"15-20", descanso:"60s", peso:"", color:"", video:"" },
+    { id:"c4", nombre:"Sentadilla pistol asistida", series:"3", reps:"8 c/l", descanso:"60s", peso:"", color:"", video:"" },
+    { id:"c5", nombre:"Plancha", series:"3", reps:"45s", descanso:"60s", peso:"", color:"", video:"" }
+  ]}}},
+  acond_fisico: { id:"acond_fisico", nombre: "Acond. Físico", cantidadDias:1, dias: { dia1: { id:"dia1", nombre:"Día 1", ejercicios: [
+    { id:"a1", nombre:"Burpees", series:"4", reps:"15", descanso:"60s", peso:"", color:"", video:"" },
+    { id:"a2", nombre:"Jumping Jacks", series:"4", reps:"40s", descanso:"45s", peso:"", color:"", video:"" },
+    { id:"a3", nombre:"Mountain Climbers", series:"3", reps:"30s", descanso:"45s", peso:"", color:"", video:"" },
+    { id:"a4", nombre:"Sentadilla con salto", series:"4", reps:"15", descanso:"60s", peso:"", color:"", video:"" },
+    { id:"a5", nombre:"Abdominales bicicleta", series:"3", reps:"20", descanso:"45s", peso:"", color:"", video:"" }
+  ]}}},
+  full_body: { id:"full_body", nombre: "Full Body (1 día)", cantidadDias:1, dias: { dia1: { id:"dia1", nombre:"Día 1 - Full", ejercicios: [
+    { id:"f1", nombre:"Sentadilla", series:"4", reps:"10", descanso:"90s", peso:"", color:"", video:"" },
+    { id:"f2", nombre:"Press banca", series:"4", reps:"10", descanso:"90s", peso:"", color:"", video:"" },
+    { id:"f3", nombre:"Peso muerto", series:"3", reps:"8", descanso:"90s", peso:"", color:"", video:"" }
+  ]}}},
+  hipertrofia_5x: { id:"hipertrofia_5x", nombre: "Hipertrofia 5 días", cantidadDias:5, dias: {
+    dia1: { id:"dia1", nombre:"Día 1 - Pecho", ejercicios: [{ id:"h1", nombre:"Press banca", series:"4", reps:"8-12", descanso:"90s", color:"", video:"" }]},
+    dia2: { id:"dia2", nombre:"Día 2 - Espalda", ejercicios: [{ id:"h2", nombre:"Remo", series:"4", reps:"10", descanso:"90s", color:"", video:"" }]},
+    dia3: { id:"dia3", nombre:"Día 3 - Piernas", ejercicios: [{ id:"h3", nombre:"Sentadilla", series:"4", reps:"10", descanso:"90s", color:"", video:"" }]},
+    dia4: { id:"dia4", nombre:"Día 4 - Hombros", ejercicios: [{ id:"h4", nombre:"Press militar", series:"4", reps:"12", descanso:"60s", color:"", video:"" }]},
+    dia5: { id:"dia5", nombre:"Día 5 - Brazos", ejercicios: [{ id:"h5", nombre:"Curl + Tríceps", series:"4", reps:"12", descanso:"60s", color:"amarillo", video:"" }]}
+  }}
 };
+
+
+// Orden estable de las claves de día (dia1, dia2, dia3...) para pestañas y previews.
+function ordenarClavesDias(dias){
+  return Object.keys(dias || {}).sort((a,b) => {
+    const na = parseInt(a.replace(/[^\d]/g,''),10) || 0;
+    const nb = parseInt(b.replace(/[^\d]/g,''),10) || 0;
+    return na - nb;
+  });
+}
+function totalEjerciciosPlantilla(p){
+  return ordenarClavesDias(p.dias).reduce((a,k) => a + (p.dias[k].ejercicios || []).length, 0);
+}
 
 async function loadRutinasPlantillas(){
   try{
@@ -3198,85 +3277,18 @@ async function loadRutinasPlantillas(){
   }catch(err){ console.error('Error cargando las plantillas de rutina:', err); }
 }
 
-let rutinaTemporal = [];       // ejercicios de la rutina que se está armando
+let plantillaTemporal = null;  // la plantilla completa (con días) que se está armando/editando
 let rutinaTemporalCambios = false; // para el confirm al cancelar
-let editandoIndexPlantilla = null; // índice en edición inline, o null
+let editandoEjercicio = null;  // { diaKey, index } en edición inline, o null
 
 let modoEdicionPlantilla = null; // key de la plantilla si estamos editándola desde Configuración, o null si es "asignar a alumno"
 
-function handleAddRoutine(uid){
-  addRoutineCtx = uid;
-  modoEdicionPlantilla = null;
-  const s = ALUMNOS_REALES.find(a => a.id === uid);
-  rutinaTemporal = [];
-  rutinaTemporalCambios = false;
-  editandoIndexPlantilla = null;
-  plantillaSeleccionadaKey = null;
-  document.getElementById('rtTituloModal').childNodes[0].textContent = 'Asignar rutina';
-  document.getElementById('arNombreAlumnoTag').textContent = s ? ' — ' + s.name : '';
-  document.getElementById('rtGuardarNombreTag').textContent = s ? ' para ' + s.name : '';
-  document.getElementById('rtBotonGuardar').childNodes[0].textContent = 'Guardar rutina';
-  document.getElementById('rtSelectorPlantillaWrap').style.display = '';
-  document.getElementById('rtCamposAlumnoWrap').style.display = '';
-  document.getElementById('rtNombreRutina').value = '';
-  document.getElementById('rtDia').value = '';
-  document.getElementById('rtError').textContent = '';
-  document.getElementById('rtBuscadorPanel').style.display = 'none';
-  renderPlantillasTabs();
-  renderListaEjerciciosPlantilla();
-  document.getElementById('addRoutineModal').classList.add('active');
-}
-
-function editarPlantillaDesdeConfig(key){
-  const p = RUTINAS_PLANTILLAS[key];
-  if(!p) return;
-  addRoutineCtx = null;
-  modoEdicionPlantilla = key;
-  plantillaSeleccionadaKey = key;
-  rutinaTemporal = JSON.parse(JSON.stringify(p.ejercicios));
-  rutinaTemporalCambios = false;
-  editandoIndexPlantilla = null;
-  document.getElementById('rtTituloModal').childNodes[0].textContent = 'Editar plantilla: ' + p.nombre + ' ';
-  document.getElementById('arNombreAlumnoTag').textContent = '';
-  document.getElementById('rtBotonGuardar').childNodes[0].textContent = 'Guardar cambios en la plantilla';
-  document.getElementById('rtGuardarNombreTag').textContent = '';
-  // En este modo no hace falta elegir otra plantilla base ni asignar día/alumno: ya estamos editando ESTA plantilla.
-  document.getElementById('rtSelectorPlantillaWrap').style.display = 'none';
-  document.getElementById('rtCamposAlumnoWrap').style.display = 'none';
-  document.getElementById('rtError').textContent = '';
-  document.getElementById('rtBuscadorPanel').style.display = 'none';
-  renderListaEjerciciosPlantilla();
-  document.getElementById('addRoutineModal').classList.add('active');
-}
-
-function cancelarAsignacionRutina(){
-  if(rutinaTemporalCambios){
-    const confirmar = confirm('Vas a perder los cambios sin guardar. ¿Cerrar igual?');
-    if(!confirmar) return;
-  }
-  document.getElementById('addRoutineModal').classList.remove('active');
-  addRoutineCtx = null;
-  modoEdicionPlantilla = null;
-  rutinaTemporal = [];
-  rutinaTemporalCambios = false;
-}
-// Se mantiene por compatibilidad con código o botones viejos que la llamaran.
-function closeAddRoutineModal(){ cancelarAsignacionRutina(); }
-
-let plantillaSeleccionadaKey = null; // para saber cuál tab está activa (rename/borrado)
-
+// ===== ASIGNAR RUTINA A UN ALUMNO (selector simple, reemplaza la anterior) =====
+// ===== ASIGNAR RUTINA A UN ALUMNO (selector simple, reemplaza la anterior) =====
 async function guardarPlantillasEnStorage(){
   try{
     await window.fb.setDoc(window.fb.doc(window.fb.db, 'config', 'plantillas_rutina'), { plantillas: RUTINAS_PLANTILLAS });
   }catch(err){ console.error('No se pudieron guardar las plantillas:', err); }
-}
-
-function renderPlantillasTabs(){
-  const sel = document.getElementById('rtPlantillasTabs');
-  const claves = Object.keys(RUTINAS_PLANTILLAS);
-  sel.innerHTML = `<option value="__todas__">Elegí una plantilla (o "Todas" para armar desde cero)</option>` +
-    claves.map(k => `<option value="${k}" ${plantillaSeleccionadaKey===k?'selected':''}>${RUTINAS_PLANTILLAS[k].nombre}</option>`).join('');
-  if(plantillaSeleccionadaKey === null) sel.value = '__todas__';
 }
 
 async function renombrarPlantilla(key){
@@ -3285,9 +3297,7 @@ async function renombrarPlantilla(key){
   const nuevoNombre = prompt('Nuevo nombre de la plantilla:', plantilla.nombre);
   if(!nuevoNombre || !nuevoNombre.trim()) return;
   plantilla.nombre = nuevoNombre.trim();
-  if(plantillaSeleccionadaKey === key) document.getElementById('rtNombreRutina').value = plantilla.nombre;
   await guardarPlantillasEnStorage();
-  renderPlantillasTabs();
 }
 
 async function borrarPlantilla(key){
@@ -3296,115 +3306,273 @@ async function borrarPlantilla(key){
   const confirmar = confirm(`¿Borrar la plantilla "${plantilla.nombre}"? Esto no afecta rutinas ya asignadas a alumnos, solo la plantilla para usarla de nuevo.`);
   if(!confirmar) return;
   delete RUTINAS_PLANTILLAS[key];
-  if(plantillaSeleccionadaKey === key){ plantillaSeleccionadaKey = null; rutinaTemporal = []; renderListaEjerciciosPlantilla(); }
   await guardarPlantillasEnStorage();
-  renderPlantillasTabs();
 }
 
-function seleccionarPlantilla(key){
-  plantillaSeleccionadaKey = key;
-  if(key === null){
-    // "Todas": arranca en blanco, para armar la rutina eligiendo ejercicios sueltos.
-    rutinaTemporal = [];
-  }else{
-    const plantilla = RUTINAS_PLANTILLAS[key];
-    if(!plantilla) return;
-    rutinaTemporal = JSON.parse(JSON.stringify(plantilla.ejercicios));
-    document.getElementById('rtNombreRutina').value = plantilla.nombre; // se actualiza siempre al elegir una plantilla
+function handleAddRoutine(uid){
+  addRoutineCtx = uid;
+  const s = ALUMNOS_REALES.find(a => a.id === uid);
+  document.getElementById('arNombreAlumnoTag').textContent = s ? ' — ' + s.name : '';
+  document.getElementById('arError').textContent = '';
+  const sel = document.getElementById('arPlantillaSelect');
+  const claves = Object.keys(RUTINAS_PLANTILLAS);
+  sel.innerHTML = claves.map(k => {
+    const p = RUTINAS_PLANTILLAS[k];
+    return `<option value="${k}">${p.nombre} — ${ordenarClavesDias(p.dias).length} día${ordenarClavesDias(p.dias).length===1?'':'s'}</option>`;
+  }).join('');
+  handleArPlantillaChange();
+  document.getElementById('assignRoutineModal').classList.add('active');
+}
+
+function handleArPlantillaChange(){
+  const key = document.getElementById('arPlantillaSelect').value;
+  const p = RUTINAS_PLANTILLAS[key];
+  const prev = document.getElementById('arPreview');
+  if(!p){ prev.innerHTML = ''; return; }
+  const claves = ordenarClavesDias(p.dias);
+  const total = totalEjerciciosPlantilla(p);
+  prev.innerHTML = `
+    <strong>${p.nombre}</strong> — ${claves.length} día${claves.length===1?'':'s'}, ${total} ejercicio${total===1?'':'s'} en total
+    <ul style="margin:10px 0 0 18px;padding:0;">
+      ${claves.map(k => `<li>${p.dias[k].nombre} (${(p.dias[k].ejercicios||[]).length} ej)</li>`).join('')}
+    </ul>`;
+}
+
+async function confirmarAsignarPlantilla(){
+  const errorEl = document.getElementById('arError');
+  errorEl.textContent = '';
+  const uid = addRoutineCtx;
+  const key = document.getElementById('arPlantillaSelect').value;
+  const p = RUTINAS_PLANTILLAS[key];
+  const s = ALUMNOS_REALES.find(a => a.id === uid);
+  if(!uid || !p || !s){ errorEl.textContent = 'No se pudo identificar el alumno o la plantilla.'; return; }
+  const confirmar = confirm(`¿Reemplazar la rutina actual de ${s.name} por "${p.nombre}"?`);
+  if(!confirmar) return;
+
+  // Clonamos la plantilla completa (con ids únicos por instancia y "done" en false) para el alumno.
+  const clon = JSON.parse(JSON.stringify(p));
+  ordenarClavesDias(clon.dias).forEach(dk => {
+    clon.dias[dk].ejercicios = clon.dias[dk].ejercicios.map(e => ({ ...e, done: false, videoOverride: null }));
+  });
+  try{
+    await window.fb.setDoc(window.fb.doc(window.fb.db, 'users', uid), { rutinaActiva: clon }, { merge: true });
+    s.rutinaActiva = clon;
+    document.getElementById('assignRoutineModal').classList.remove('active');
+    addRoutineCtx = null;
+    renderProfile(uid);
+    showToast('✅ Rutina "' + p.nombre + '" asignada.', false);
+  }catch(err){
+    errorEl.textContent = 'No se pudo asignar (' + (err.code || err.message) + ').';
+  }
+}
+
+function cancelarAsignacionRutina(){
+  document.getElementById('assignRoutineModal').classList.remove('active');
+  addRoutineCtx = null;
+}
+// Se mantiene por compatibilidad con código o botones viejos que la llamaran.
+function closeAddRoutineModal(){ cancelarAsignacionRutina(); }
+
+// ===== EDITAR / CREAR PLANTILLA (con días) — desde Configuración =====
+function editarPlantillaDesdeConfig(key){
+  const p = RUTINAS_PLANTILLAS[key];
+  if(!p) return;
+  modoEdicionPlantilla = key;
+  plantillaTemporal = JSON.parse(JSON.stringify(p));
+  rutinaTemporalCambios = false;
+  editandoEjercicio = null;
+  // Si es una plantilla vieja con menos de 2 días, la completamos con días vacíos
+  // para cumplir el mínimo (así el desplegable y el contenido real quedan sincronizados).
+  const clavesActuales = ordenarClavesDias(plantillaTemporal.dias);
+  while(clavesActuales.length < 2){
+    const nuevaClave = 'dia' + (clavesActuales.length + 1);
+    plantillaTemporal.dias[nuevaClave] = crearDiaVacio('Día ' + (clavesActuales.length + 1));
+    clavesActuales.push(nuevaClave);
+  }
+  document.getElementById('epTituloModal').textContent = 'Editar plantilla: ' + p.nombre;
+  document.getElementById('epNombre').value = p.nombre;
+  document.getElementById('epCantidadDias').value = String(Math.min(6, clavesActuales.length));
+  document.getElementById('epError').textContent = '';
+  renderDiasPlantilla();
+  document.getElementById('editPlantillaModal').classList.add('active');
+}
+
+function cancelarEdicionPlantilla(){
+  if(rutinaTemporalCambios){
+    const confirmar = confirm('Vas a perder los cambios sin guardar. ¿Cerrar igual?');
+    if(!confirmar) return;
+  }
+  document.getElementById('editPlantillaModal').classList.remove('active');
+  modoEdicionPlantilla = null;
+  plantillaTemporal = null;
+  rutinaTemporalCambios = false;
+}
+
+function handleCambiarCantidadDias(){
+  const cantidad = Number(document.getElementById('epCantidadDias').value);
+  const claves = ordenarClavesDias(plantillaTemporal.dias);
+  while(claves.length < cantidad){
+    const nuevaClave = 'dia' + (claves.length + 1);
+    plantillaTemporal.dias[nuevaClave] = crearDiaVacio('Día ' + (claves.length + 1));
+    claves.push(nuevaClave);
+  }
+  while(claves.length > cantidad){
+    const ultima = claves.pop();
+    delete plantillaTemporal.dias[ultima];
   }
   rutinaTemporalCambios = true;
-  editandoIndexPlantilla = null;
-  renderPlantillasTabs();
-  renderListaEjerciciosPlantilla();
+  renderDiasPlantilla();
 }
 
-function renderListaEjerciciosPlantilla(){
-  const cont = document.getElementById('rtListaEjercicios');
-  if(!rutinaTemporal.length){
-    cont.innerHTML = `<p style="font-size:.82rem;color:var(--off-dim);">Elegí una plantilla arriba, o agregá ejercicios sueltos con "+ Agregar ejercicio".</p>`;
-    return;
-  }
-  cont.innerHTML = rutinaTemporal.map((e, i) => {
-    if(editandoIndexPlantilla === i){
-      return `
-        <div class="card" style="padding:12px;">
-          <div class="grid grid-2" style="gap:8px;margin-bottom:8px;">
-            <input type="text" id="rtEditNombre-${i}" value="${e.nombre}" placeholder="Nombre del ejercicio">
-            <input type="text" id="rtEditSeries-${i}" value="${e.series}" placeholder="Series">
-          </div>
-          <div class="grid grid-3" style="gap:8px;margin-bottom:10px;">
-            <input type="text" id="rtEditReps-${i}" value="${e.reps}" placeholder="Reps">
-            <input type="text" id="rtEditDescanso-${i}" value="${e.descanso}" placeholder="Descanso">
-            <input type="text" id="rtEditPeso-${i}" value="${e.peso || ''}" placeholder="Peso (kg)">
-          </div>
-          <span class="btn btn-solid btn-small" onclick="guardarEdicionEjercicioPlantilla(${i})">💾 Guardar</span>
-        </div>`;
-    }
+function agregarDiaPlantilla(){
+  const claves = ordenarClavesDias(plantillaTemporal.dias);
+  if(claves.length >= 6){ alert('El máximo es 6 días por plantilla.'); return; }
+  const nuevaClave = 'dia' + (claves.length + 1);
+  plantillaTemporal.dias[nuevaClave] = crearDiaVacio('Día ' + (claves.length + 1));
+  document.getElementById('epCantidadDias').value = String(claves.length + 1);
+  rutinaTemporalCambios = true;
+  renderDiasPlantilla();
+}
+
+function borrarDiaPlantilla(diaKey){
+  const claves = ordenarClavesDias(plantillaTemporal.dias);
+  if(claves.length <= 1){ alert('La plantilla necesita al menos un día.'); return; }
+  if(!confirm('¿Borrar "' + plantillaTemporal.dias[diaKey].nombre + '" y todos sus ejercicios?')) return;
+  delete plantillaTemporal.dias[diaKey];
+  document.getElementById('epCantidadDias').value = String(claves.length - 1);
+  rutinaTemporalCambios = true;
+  renderDiasPlantilla();
+}
+
+function renombrarDiaPlantilla(diaKey, input){
+  plantillaTemporal.dias[diaKey].nombre = input.value;
+  rutinaTemporalCambios = true;
+}
+
+const COLORES_SUPERSET = [
+  { valor:'', label:'Sin color' },
+  { valor:'rojo', label:'🔴 Rojo' },
+  { valor:'amarillo', label:'🟡 Amarillo' },
+  { valor:'azul', label:'🔵 Azul' },
+  { valor:'verde', label:'🟢 Verde' },
+  { valor:'violeta', label:'🟣 Violeta' },
+];
+function hexParaColorSuperset(color){
+  return { rojo:'#e0574a', amarillo:'#e0a53f', azul:'#0049CD', verde:'#3fae6a', violeta:'#8a5cf6' }[color] || 'transparent';
+}
+
+function renderDiasPlantilla(){
+  const cont = document.getElementById('epDiasContainer');
+  const claves = ordenarClavesDias(plantillaTemporal.dias);
+  cont.innerHTML = claves.map(dk => {
+    const dia = plantillaTemporal.dias[dk];
     return `
-      <div class="card" style="padding:12px;display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap;">
-        <div>
-          <strong style="font-size:.9rem;">${e.nombre}</strong>
-          <p style="font-size:.78rem;color:var(--off-dim);margin-top:3px;">${e.series} series · ${e.reps} reps · descanso ${e.descanso}${e.peso ? ' · ' + e.peso + 'kg' : ''}</p>
-        </div>
-        <div style="display:flex;gap:6px;flex-shrink:0;">
-          <span class="btn btn-ghost btn-small" onclick="editarEjercicioPlantilla(${i})">✏️ Editar</span>
-          <span class="btn btn-ghost btn-small" onclick="borrarEjercicioPlantilla(${i})">🗑️ Borrar</span>
-        </div>
-      </div>`;
+    <div class="card" style="padding:14px;">
+      <div style="display:flex;justify-content:space-between;align-items:center;gap:10px;margin-bottom:12px;">
+        <input type="text" value="${dia.nombre}" oninput="renombrarDiaPlantilla('${dk}', this)" style="flex:1;font-weight:700;background:var(--black);border:1px solid rgba(242,237,228,.16);border-radius:8px;padding:8px;color:var(--off);">
+        <span class="btn btn-ghost btn-small" onclick="borrarDiaPlantilla('${dk}')" title="Borrar día">🗑️</span>
+      </div>
+      <div style="display:flex;flex-direction:column;gap:8px;margin-bottom:10px;">
+        ${(dia.ejercicios||[]).map((e,i) => renderFilaEjercicioPlantilla(dk, e, i)).join('') || '<p style="font-size:.8rem;color:var(--off-dim);">Sin ejercicios todavía.</p>'}
+      </div>
+      <div style="position:relative;">
+        <span class="btn btn-ghost btn-small" onclick="toggleBuscadorEjercicioPlantilla('${dk}')">+ Agregar ejercicio</span>
+        <div id="epBuscador-${dk}" style="display:none;position:absolute;bottom:100%;left:0;right:0;z-index:20;background:var(--carbon);border:1px solid rgba(242,237,228,.2);border-radius:8px;margin-bottom:6px;max-height:220px;overflow-y:auto;box-shadow:0 -8px 24px rgba(0,0,0,.4);"></div>
+      </div>
+    </div>`;
   }).join('');
 }
 
-function editarEjercicioPlantilla(index){
-  editandoIndexPlantilla = index;
-  renderListaEjerciciosPlantilla();
+function renderFilaEjercicioPlantilla(diaKey, e, i){
+  if(editandoEjercicio && editandoEjercicio.diaKey === diaKey && editandoEjercicio.index === i){
+    return `
+      <div class="card" style="padding:12px;border-left:4px solid ${hexParaColorSuperset(e.color)};">
+        <div class="grid grid-2" style="gap:8px;margin-bottom:8px;">
+          <input type="text" id="epEditNombre-${diaKey}-${i}" value="${e.nombre}" placeholder="Nombre del ejercicio">
+          <input type="text" id="epEditSeries-${diaKey}-${i}" value="${e.series}" placeholder="Series">
+        </div>
+        <div class="grid grid-3" style="gap:8px;margin-bottom:8px;">
+          <input type="text" id="epEditReps-${diaKey}-${i}" value="${e.reps}" placeholder="Reps">
+          <input type="text" id="epEditDescanso-${diaKey}-${i}" value="${e.descanso}" placeholder="Descanso">
+          <input type="text" id="epEditPeso-${diaKey}-${i}" value="${e.peso || ''}" placeholder="Peso (kg)">
+        </div>
+        <div class="grid grid-2" style="gap:8px;margin-bottom:10px;">
+          <select id="epEditColor-${diaKey}-${i}" style="background:var(--black);border:1px solid rgba(242,237,228,.16);border-radius:8px;padding:8px;color:var(--off);">
+            ${COLORES_SUPERSET.map(c => `<option value="${c.valor}" ${e.color===c.valor?'selected':''}>${c.label}</option>`).join('')}
+          </select>
+          <input type="url" id="epEditVideo-${diaKey}-${i}" value="${e.video || ''}" placeholder="Link de YouTube (opcional)">
+        </div>
+        <span class="btn btn-solid btn-small" onclick="guardarEdicionEjercicioPlantilla('${diaKey}', ${i})">💾 Guardar</span>
+      </div>`;
+  }
+  return `
+    <div class="card" style="padding:12px;display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap;border-left:4px solid ${hexParaColorSuperset(e.color)};">
+      <div>
+        <strong style="font-size:.9rem;">${e.nombre}</strong>
+        <p style="font-size:.78rem;color:var(--off-dim);margin-top:3px;">${e.series} series · ${e.reps} reps · descanso ${e.descanso}${e.peso ? ' · ' + e.peso + 'kg' : ''}${e.color ? ' · superset ' + e.color : ''}</p>
+      </div>
+      <div style="display:flex;gap:6px;flex-shrink:0;">
+        <span class="btn btn-ghost btn-small" onclick="editarEjercicioPlantilla('${diaKey}', ${i})">✏️ Editar</span>
+        <span class="btn btn-ghost btn-small" onclick="borrarEjercicioPlantilla('${diaKey}', ${i})">🗑️ Borrar</span>
+      </div>
+    </div>`;
 }
 
-function guardarEdicionEjercicioPlantilla(index){
-  const nombre = document.getElementById('rtEditNombre-'+index).value.trim();
-  const series = document.getElementById('rtEditSeries-'+index).value.trim();
-  const reps = document.getElementById('rtEditReps-'+index).value.trim();
-  const descanso = document.getElementById('rtEditDescanso-'+index).value.trim();
-  const peso = document.getElementById('rtEditPeso-'+index).value.trim();
+function editarEjercicioPlantilla(diaKey, index){
+  editandoEjercicio = { diaKey, index };
+  renderDiasPlantilla();
+}
+
+function guardarEdicionEjercicioPlantilla(diaKey, index){
+  const nombre = document.getElementById(`epEditNombre-${diaKey}-${index}`).value.trim();
+  const series = document.getElementById(`epEditSeries-${diaKey}-${index}`).value.trim();
+  const reps = document.getElementById(`epEditReps-${diaKey}-${index}`).value.trim();
+  const descanso = document.getElementById(`epEditDescanso-${diaKey}-${index}`).value.trim();
+  const peso = document.getElementById(`epEditPeso-${diaKey}-${index}`).value.trim();
+  const color = document.getElementById(`epEditColor-${diaKey}-${index}`).value;
+  const video = document.getElementById(`epEditVideo-${diaKey}-${index}`).value.trim();
   if(!nombre){ alert('El ejercicio necesita un nombre.'); return; }
-  rutinaTemporal[index] = { nombre, series: series||'3', reps: reps||'10-12', descanso: descanso||'60s', peso: peso || '' };
+  const actual = plantillaTemporal.dias[diaKey].ejercicios[index];
+  plantillaTemporal.dias[diaKey].ejercicios[index] = { id: actual.id, nombre, series: series||'3', reps: reps||'10-12', descanso: descanso||'60s', peso: peso || '', color, video };
   rutinaTemporalCambios = true;
-  editandoIndexPlantilla = null;
-  renderListaEjerciciosPlantilla();
+  editandoEjercicio = null;
+  renderDiasPlantilla();
 }
 
-function borrarEjercicioPlantilla(index){
-  const e = rutinaTemporal[index];
+function borrarEjercicioPlantilla(diaKey, index){
+  const e = plantillaTemporal.dias[diaKey].ejercicios[index];
   if(!e) return;
-  const confirmar = confirm(`¿Borrar "${e.nombre}" de esta rutina?`);
-  if(!confirmar) return;
-  rutinaTemporal.splice(index, 1);
+  if(!confirm(`¿Borrar "${e.nombre}" de este día?`)) return;
+  plantillaTemporal.dias[diaKey].ejercicios.splice(index, 1);
   rutinaTemporalCambios = true;
-  editandoIndexPlantilla = null;
-  renderListaEjerciciosPlantilla();
+  editandoEjercicio = null;
+  renderDiasPlantilla();
 }
 
-function agregarEjercicioAPlantilla(ejercicio){
-  rutinaTemporal.push(Object.assign({ peso:'' }, ejercicio));
+function agregarEjercicioAPlantilla(diaKey, ejercicio){
+  plantillaTemporal.dias[diaKey].ejercicios.push(Object.assign({ id: 'ex-' + Date.now() + '-' + Math.random().toString(36).slice(2,6), peso:'', color:'', video:'' }, ejercicio));
   rutinaTemporalCambios = true;
-  renderListaEjerciciosPlantilla();
+  renderDiasPlantilla();
 }
 
-function toggleBuscadorEjercicioPlantilla(){
-  const panel = document.getElementById('rtBuscadorPanel');
+function toggleBuscadorEjercicioPlantilla(diaKey){
+  const panel = document.getElementById('epBuscador-' + diaKey);
   const abierto = panel.style.display === 'block';
+  // Cerrar cualquier otro buscador abierto de otro día.
+  document.querySelectorAll('[id^="epBuscador-"]').forEach(p => p.style.display = 'none');
   panel.style.display = abierto ? 'none' : 'block';
-  if(!abierto) renderBuscadorEjercicioPlantilla();
+  if(!abierto) renderBuscadorEjercicioPlantilla(diaKey);
 }
 
-function renderBuscadorEjercicioPlantilla(){
-  const panel = document.getElementById('rtBuscadorPanel');
+function renderBuscadorEjercicioPlantilla(diaKey){
+  const panel = document.getElementById('epBuscador-' + diaKey);
   const grupos = {};
   EXERCISE_BANK.forEach(e => { (grupos[e.group || 'Otros'] = grupos[e.group || 'Otros'] || []).push(e); });
   panel.innerHTML = Object.keys(grupos).map(g => `
     <div style="padding:8px 12px;background:rgba(255,255,255,.05);font-size:.72rem;text-transform:uppercase;letter-spacing:.06em;color:var(--off-dim);font-weight:700;">${g}</div>
     ${grupos[g].map(e => `
       <div style="padding:10px 16px;cursor:pointer;" onmouseover="this.style.background='rgba(255,255,255,.06)'" onmouseout="this.style.background='transparent'"
-        onclick='agregarEjercicioAPlantilla({nombre:${JSON.stringify(e.name)}, series:"3", reps:"10-12", descanso:"60s"}); document.getElementById("rtBuscadorPanel").style.display="none";'>
+        onclick='agregarEjercicioAPlantilla(${JSON.stringify(diaKey)}, {nombre:${JSON.stringify(e.name)}, series:"3", reps:"10-12", descanso:"60s", video:${JSON.stringify(e.video||'')}}); document.getElementById(${JSON.stringify('epBuscador-'+diaKey)}).style.display="none";'>
         ${e.name}
       </div>`).join('')}
   `).join('') || `<p style="padding:12px;font-size:.8rem;color:var(--off-dim);">No hay ejercicios cargados todavía. Agregalos desde Configuración → Banco de ejercicios.</p>`;
@@ -3415,54 +3583,28 @@ function parseDescansoASegundos(descanso){
   return isNaN(n) ? 60 : n;
 }
 
-async function guardarRutinaAlumno(){
-  const errorEl = document.getElementById('rtError');
+async function guardarPlantillaCompleta(){
+  const errorEl = document.getElementById('epError');
   errorEl.textContent = '';
+  const nombre = document.getElementById('epNombre').value.trim();
+  if(!nombre){ errorEl.textContent = 'Ponele un nombre a la plantilla.'; return; }
+  const claves = ordenarClavesDias(plantillaTemporal.dias);
+  if(!claves.length){ errorEl.textContent = 'Agregá al menos un día.'; return; }
+  const totalEj = claves.reduce((a,k) => a + (plantillaTemporal.dias[k].ejercicios||[]).length, 0);
+  if(!totalEj){ errorEl.textContent = 'Agregá al menos un ejercicio en algún día.'; return; }
 
-  // Modo "editar plantilla desde Configuración": no hay alumno, se guarda en la plantilla misma.
-  if(modoEdicionPlantilla){
-    if(!rutinaTemporal.length){ errorEl.textContent = 'Agregá al menos un ejercicio.'; return; }
-    const plantilla = RUTINAS_PLANTILLAS[modoEdicionPlantilla];
-    if(!plantilla){ errorEl.textContent = 'No se encontró la plantilla.'; return; }
-    plantilla.ejercicios = JSON.parse(JSON.stringify(rutinaTemporal));
-    try{
-      await guardarPlantillasEnStorage();
-      rutinaTemporal = [];
-      rutinaTemporalCambios = false;
-      modoEdicionPlantilla = null;
-      document.getElementById('addRoutineModal').classList.remove('active');
-      renderConfigPlantillasGrid();
-      showToast('✅ Plantilla "' + plantilla.nombre + '" actualizada.', false);
-    }catch(err){
-      errorEl.textContent = 'No se pudo guardar (' + (err.code || err.message) + ').';
-    }
-    return;
-  }
-
-  // Modo normal: asignar una rutina a un alumno.
-  if(!addRoutineCtx) return;
-  const nombre = document.getElementById('rtNombreRutina').value.trim();
-  if(!nombre){ errorEl.textContent = 'Ponele un nombre a la rutina.'; return; }
-  if(!rutinaTemporal.length){ errorEl.textContent = 'Agregá al menos un ejercicio.'; return; }
-  const dia = document.getElementById('rtDia').value || null;
-  const uid = addRoutineCtx;
-  const s = ALUMNOS_REALES.find(a => a.id === uid);
-  if(!s){ errorEl.textContent = 'No se encontró el alumno.'; return; }
-
-  const ejerciciosGuardar = rutinaTemporal.map(e => ({
-    ex: e.nombre, sets: e.series, reps: e.reps,
-    weight: e.peso ? Number(e.peso) || e.peso : null, lastWeight: e.peso ? Number(e.peso) || e.peso : null,
-    rest: parseDescansoASegundos(e.descanso), done: false, video: null
-  }));
-  const routines = s.routines ? [...s.routines] : [];
-  routines.push({ name: nombre, day: dia, progress: 0, exercises: ejerciciosGuardar });
-
+  plantillaTemporal.nombre = nombre;
+  plantillaTemporal.cantidadDias = claves.length;
+  plantillaTemporal.id = modoEdicionPlantilla;
+  RUTINAS_PLANTILLAS[modoEdicionPlantilla] = plantillaTemporal;
   try{
-    await saveStudentRoutines(uid, routines);
-    rutinaTemporal = [];
+    await guardarPlantillasEnStorage();
     rutinaTemporalCambios = false;
-    document.getElementById('addRoutineModal').classList.remove('active');
-    addRoutineCtx = null;
+    document.getElementById('editPlantillaModal').classList.remove('active');
+    modoEdicionPlantilla = null;
+    plantillaTemporal = null;
+    renderConfigPlantillasGrid();
+    showToast('✅ Plantilla "' + nombre + '" guardada.', false);
   }catch(err){
     errorEl.textContent = 'No se pudo guardar (' + (err.code || err.message) + ').';
   }
@@ -3470,8 +3612,8 @@ async function guardarRutinaAlumno(){
 
 let addExerciseCtx = null; // { uid, ri }
 
-function handleAddExercise(uid, ri){
-  addExerciseCtx = { uid, ri };
+function handleAddExercise(uid, diaKey){
+  addExerciseCtx = { uid, diaKey };
   document.getElementById('aeSelectedId').value = '';
   document.getElementById('aeSelectLabel').textContent = 'Elegí un ejercicio';
   document.getElementById('aeSets').value = '3';
@@ -3487,6 +3629,13 @@ function closeAddExerciseModal(){
   document.getElementById('addExerciseModal').classList.remove('active');
   addExerciseCtx = null;
 }
+// Busca el video en el banco de ejercicios en tiempo real (por nombre), en vez de guardarlo
+// copiado en cada alumno — así, si se cambia acá, se actualiza para todos automáticamente.
+function getVideoDelBanco(nombreEjercicio){
+  const encontrado = EXERCISE_BANK.find(e => e.name.trim().toLowerCase() === (nombreEjercicio || '').trim().toLowerCase());
+  return encontrado && encontrado.video ? encontrado.video : null;
+}
+
 function getExerciseGroups(){
   const grupos = new Set(EXERCISE_GROUPS_LIST);
   EXERCISE_BANK.forEach(e => grupos.add(e.group || 'Otros'));
@@ -3637,79 +3786,65 @@ async function handleAddExerciseSubmit(event){
   const reps = document.getElementById('aeReps').value.trim() || '10-12';
   const weightStr = document.getElementById('aeWeight').value;
   const rest = Number(document.getElementById('aeRest').value) || 30;
-  const { uid, ri } = addExerciseCtx;
+  const { uid, diaKey } = addExerciseCtx;
   const s = ALUMNOS_REALES.find(a => a.id === uid);
-  const routines = [...s.routines];
-  routines[ri] = { ...routines[ri], exercises: [...routines[ri].exercises, { ex: exName, sets, reps, weight: weightStr ? Number(weightStr) : null, rest, lastWeight: null, done: false, video: null }] };
-  await saveStudentRoutines(uid, routines);
+  const nuevoEjercicio = { id:'ex-'+Date.now(), nombre: exName, series: sets, reps, peso: weightStr || '', descanso: rest+'s', color:'', video:'', videoOverride:null, done:false };
+  s.rutinaActiva.dias[diaKey].ejercicios.push(nuevoEjercicio);
+  try{
+    await window.fb.setDoc(window.fb.doc(window.fb.db, 'users', uid), { rutinaActiva: s.rutinaActiva }, { merge: true });
+    renderProfile(uid);
+  }catch(err){
+    errorEl.textContent = 'No se pudo guardar (' + (err.code || err.message) + ').';
+    return false;
+  }
   closeAddExerciseModal();
   return false;
 }
 
-async function handleSetVideo(uid, ri, ei){
+async function saveRutinaActiva(uid){
   const s = ALUMNOS_REALES.find(a => a.id === uid);
-  const actual = s.routines[ri].exercises[ei].video || '';
-  const url = prompt('Pegá el link de YouTube del ejercicio:', actual);
+  await window.fb.setDoc(window.fb.doc(window.fb.db, 'users', uid), { rutinaActiva: s.rutinaActiva }, { merge: true });
+  renderProfile(uid);
+}
+
+async function handleSetVideo(uid, diaKey, ei){
+  const s = ALUMNOS_REALES.find(a => a.id === uid);
+  const e = s.rutinaActiva.dias[diaKey].ejercicios[ei];
+  const url = prompt('Pegá el link de YouTube (solo para este alumno):', e.videoOverride || '');
   if(url === null) return; // canceló
-  const routines = [...s.routines];
-  const exercises = [...routines[ri].exercises];
-  exercises[ei] = { ...exercises[ei], video: url || null };
-  routines[ri] = { ...routines[ri], exercises };
-  await saveStudentRoutines(uid, routines);
+  e.videoOverride = url || null;
+  await saveRutinaActiva(uid);
 }
 
-async function handleDeleteVideo(uid, ri, ei){
+async function handleDeleteVideo(uid, diaKey, ei){
+  if(!confirm('¿Quitar el video propio de este alumno y volver a usar el del banco?')) return;
   const s = ALUMNOS_REALES.find(a => a.id === uid);
-  if(!confirm('¿Quitar el video de este ejercicio?')) return;
-  const routines = [...s.routines];
-  const exercises = [...routines[ri].exercises];
-  exercises[ei] = { ...exercises[ei], video: null };
-  routines[ri] = { ...routines[ri], exercises };
-  await saveStudentRoutines(uid, routines);
+  s.rutinaActiva.dias[diaKey].ejercicios[ei].videoOverride = null;
+  await saveRutinaActiva(uid);
 }
 
-async function handleEditRoutineName(uid, ri){
+async function handleEditExercise(uid, diaKey, ei){
   const s = ALUMNOS_REALES.find(a => a.id === uid);
-  const nuevoNombre = prompt('Nombre de la rutina:', s.routines[ri].name);
-  if(nuevoNombre === null || !nuevoNombre.trim()) return; // canceló o dejó vacío
-  const dia = askForDay(s.routines[ri].day);
-  if(dia === undefined) return; // canceló en el paso del día
-  const routines = [...s.routines];
-  routines[ri] = { ...routines[ri], name: nuevoNombre.trim(), day: dia };
-  await saveStudentRoutines(uid, routines);
-}
-
-async function handleDeleteRoutine(uid, ri){
-  const s = ALUMNOS_REALES.find(a => a.id === uid);
-  if(!confirm(`¿Eliminar la rutina "${s.routines[ri].name}" y todos sus ejercicios?`)) return;
-  const routines = s.routines.filter((_, i) => i !== ri);
-  await saveStudentRoutines(uid, routines);
-}
-
-async function handleEditExercise(uid, ri, ei){
-  const s = ALUMNOS_REALES.find(a => a.id === uid);
-  const actual = s.routines[ri].exercises[ei];
-  const ex = prompt('Nombre del ejercicio:', actual.ex);
-  if(ex === null || !ex.trim()) return; // canceló o dejó vacío
-  const sets = prompt('¿Cuántas series?', actual.sets);
+  const actual = s.rutinaActiva.dias[diaKey].ejercicios[ei];
+  const nombre = prompt('Nombre del ejercicio:', actual.nombre);
+  if(nombre === null || !nombre.trim()) return; // canceló o dejó vacío
+  const series = prompt('¿Cuántas series?', actual.series);
   const reps = prompt('¿Cuántas repeticiones?', actual.reps);
-  const weightStr = prompt('¿Peso sugerido en kg? (dejalo vacío si no aplica)', actual.weight || '');
-  const restStr = prompt('¿Descanso entre series, en segundos? (ej: 10, 30, 60)', actual.rest || 30);
-  const routines = [...s.routines];
-  const exercises = [...routines[ri].exercises];
-  exercises[ei] = { ...exercises[ei], ex: ex.trim(), sets: sets || actual.sets, reps: reps || actual.reps, weight: weightStr ? Number(weightStr) : null, rest: restStr && !isNaN(Number(restStr)) ? Number(restStr) : (actual.rest || 30) };
-  routines[ri] = { ...routines[ri], exercises };
-  await saveStudentRoutines(uid, routines);
+  const pesoStr = prompt('¿Peso sugerido en kg? (dejalo vacío si no aplica)', actual.peso || '');
+  const descansoStr = prompt('¿Descanso entre series? (ej: 30s, 60s, 90s)', actual.descanso || '60s');
+  s.rutinaActiva.dias[diaKey].ejercicios[ei] = {
+    ...actual, nombre: nombre.trim(), series: series || actual.series, reps: reps || actual.reps,
+    peso: pesoStr || '', descanso: descansoStr || actual.descanso
+  };
+  await saveRutinaActiva(uid);
 }
 
-async function handleDeleteExercise(uid, ri, ei){
+async function handleDeleteExercise(uid, diaKey, ei){
   const s = ALUMNOS_REALES.find(a => a.id === uid);
-  const actual = s.routines[ri].exercises[ei];
-  if(!confirm(`¿Eliminar el ejercicio "${actual.ex}"?`)) return;
-  const routines = [...s.routines];
-  const exercises = routines[ri].exercises.filter((_, i) => i !== ei);
-  routines[ri] = { ...routines[ri], exercises };
-  await saveStudentRoutines(uid, routines);
+  const actual = s.rutinaActiva.dias[diaKey].ejercicios[ei];
+  if(!confirm(`¿Eliminar el ejercicio "${actual.nombre}"?`)) return;
+  s.rutinaActiva.dias[diaKey].ejercicios.splice(ei, 1);
+  await saveRutinaActiva(uid);
 }
 
 function handlePlanChange(){
@@ -4072,7 +4207,7 @@ function renderMisNotif(){
   }
   if(!currentStudentReal){
     // notificaciones de ejemplo, solo para la demo con datos ficticios
-    items.push(notifHTML('🏋️','var(--forge)', `Rutina completada: ${s.routines[0].name}`, 'Ayer'));
+    items.push(notifHTML('🏋️','var(--forge)', `Rutina completada: ${s.rutinaActiva ? s.rutinaActiva.dias[ordenarClavesDias(s.rutinaActiva.dias)[0]].nombre : 'Día 1'}`, 'Ayer'));
     items.push(notifHTML('📋','var(--cyan)', 'Nuevo plan asignado por tu entrenador', 'Hace 4 días'));
     items.push(notifHTML('🎯','var(--magenta)', 'Alcanzaste un nuevo objetivo de entrenamiento', 'Hace 6 días'));
   }
@@ -4116,35 +4251,64 @@ function renderMiPerfil(){
       </div>
     </div>`;
 }
+let currentMisRutinasDia = null;
+
 function renderMisRutinas(){
   const s = currentStudentReal || STUDENTS[currentStudentId];
-  if(!s.routines || !s.routines.length){
+  if(!s.rutinaActiva){
     document.getElementById('misRutinasContent').innerHTML = `<div class="card">
       <p style="font-size:.85rem;">Todavía no tenés una rutina asignada. Tu entrenador te la va a cargar pronto — volvé a revisar más tarde.</p>
     </div>`;
     return;
   }
-  document.getElementById('misRutinasContent').innerHTML = `<div class="card">
-    <p style="font-size:.8rem;margin-bottom:18px;">Marcá cada ejercicio a medida que lo vas completando. Tu entrenador ve este progreso en tu perfil.</p>
-    ${renderRoutinesGroupedByDay(s, false, 'misr')}
-  </div>`;
+  const claves = ordenarClavesDias(s.rutinaActiva.dias);
+  if(!currentMisRutinasDia || !claves.includes(currentMisRutinasDia)) currentMisRutinasDia = claves[0];
+  document.getElementById('misRutinasContent').innerHTML = `<div class="card" style="margin-bottom:16px;">
+    <span class="eyebrow">${s.rutinaActiva.nombre}</span>
+    <p style="font-size:.8rem;margin-top:6px;">Marcá cada ejercicio a medida que lo vas completando. Tu entrenador ve este progreso en tu perfil.</p>
+    <div style="display:flex;gap:8px;margin-top:14px;overflow-x:auto;padding-bottom:4px;-webkit-overflow-scrolling:touch;" id="misRutinasTabsSelector"></div>
+  </div>
+  <div id="misRutinasDiaContent"></div>`;
+  renderMisRutinasTabsSelector();
+  renderMisRutinasDia();
 }
 
-let currentInicioDia = null;
+function renderMisRutinasTabsSelector(){
+  const s = currentStudentReal || STUDENTS[currentStudentId];
+  const claves = ordenarClavesDias(s.rutinaActiva.dias);
+  document.getElementById('misRutinasTabsSelector').innerHTML = claves.map(dk => {
+    const activo = dk === currentMisRutinasDia;
+    return `<span class="btn ${activo?'btn-solid':'btn-ghost'} btn-small" style="flex:0 0 auto;" onclick="selectMisRutinasDia('${dk}')">${s.rutinaActiva.dias[dk].nombre}</span>`;
+  }).join('');
+}
+
+function selectMisRutinasDia(diaKey){
+  currentMisRutinasDia = diaKey;
+  renderMisRutinasTabsSelector();
+  renderMisRutinasDia();
+}
+
+function renderMisRutinasDia(){
+  const s = currentStudentReal || STUDENTS[currentStudentId];
+  document.getElementById('misRutinasDiaContent').innerHTML = renderDiaCardHTML(s, currentMisRutinasDia, false, 'misr');
+}
 
 async function renderInicio(){
   const s = currentStudentReal || STUDENTS[currentStudentId];
   document.getElementById('inicioSaludo').textContent = `Hola, ${s.name}`;
   document.getElementById('inicioSaludoTag').textContent = s.membership === 'Activa' ? 'Membresía activa' : s.membership;
 
-  currentInicioDia = getTodayCode();
+  const claves = s.rutinaActiva ? ordenarClavesDias(s.rutinaActiva.dias) : [];
 
   document.getElementById('inicioContent').innerHTML = `
     <div class="card" style="margin-bottom:20px;">
-      <span class="eyebrow">Elegí un día para ver la rutina</span>
-      <div style="display:flex;gap:10px;margin-top:14px;overflow-x:auto;padding-bottom:4px;-webkit-overflow-scrolling:touch;" id="inicioDiasSelector"></div>
+      <span class="eyebrow">Tu rutina</span>
+      ${s.rutinaActiva ? `
+        <h3 style="margin:8px 0 4px;">${s.rutinaActiva.nombre}</h3>
+        <p style="font-size:.8rem;color:var(--off-dim);margin-bottom:14px;">${claves.length} día${claves.length===1?'':'s'} asignados</p>
+        <span class="btn btn-solid btn-small" onclick="showView('misRutinas')">Ver mis rutinas</span>
+      ` : `<p style="font-size:.85rem;color:var(--off-dim);">Todavía no tenés una rutina asignada.</p>`}
     </div>
-    <div id="inicioRutinaDelDia" style="margin-bottom:20px;"></div>
     <div class="grid grid-2" style="margin-bottom:20px;align-items:stretch;">
       <div class="card" style="text-align:center;">
         <span class="eyebrow">Pase de acceso</span>
@@ -4163,49 +4327,8 @@ async function renderInicio(){
       <div style="display:flex;gap:8px;margin-top:12px;overflow-x:auto;" id="inicioDias"></div>
     </div>`;
 
-  renderInicioDiasSelector();
-  renderInicioRutinaDelDia(currentInicioDia);
   renderQRInto('qrCanvasHome');
   loadWeeklyStreak();
-}
-
-function renderInicioDiasSelector(){
-  const s = currentStudentReal || STUDENTS[currentStudentId];
-  const hoy = getTodayCode();
-  const dias = ['L','M','X','J','V','S','D'];
-  const diasConRutina = new Set((s.routines || []).map(r => r.day).filter(Boolean));
-  document.getElementById('inicioDiasSelector').innerHTML = dias.map(d=>{
-    const activo = d === currentInicioDia;
-    const tieneRutina = diasConRutina.has(d);
-    const color = DAY_COLORS[d];
-    return `<div onclick="selectInicioDia('${d}')" style="cursor:pointer;text-align:center;flex:0 0 auto;width:50px;">
-      <div style="width:46px;height:46px;margin:0 auto 5px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-weight:800;font-size:.92rem;
-        transition:transform .15s;
-        background:${activo ? color : (tieneRutina ? color+'26' : 'rgba(242,237,228,.06)')};
-        color:${activo ? '#fff' : (tieneRutina ? color : 'var(--off-dim)')};
-        border:2px solid ${activo ? color : 'transparent'};
-        ${activo ? `box-shadow:0 0 16px 2px ${color}99;` : ''}">${d}</div>
-      <span style="font-size:.62rem;color:var(--off-dim);">${d===hoy ? 'HOY' : ''}</span>
-    </div>`;
-  }).join('');
-}
-
-function selectInicioDia(code){
-  currentInicioDia = code;
-  renderInicioDiasSelector();
-  renderInicioRutinaDelDia(code);
-}
-
-function renderInicioRutinaDelDia(code){
-  const s = currentStudentReal || STUDENTS[currentStudentId];
-  const el = document.getElementById('inicioRutinaDelDia');
-  if(!el) return;
-  const rutinasDelDia = (s.routines || []).map((r,ri)=>({r,ri})).filter(({r}) => r.day === code);
-  if(!rutinasDelDia.length){
-    el.innerHTML = `<div class="card"><p style="font-size:.85rem;color:var(--off-dim);">No tenés rutina asignada para ${DAY_NAMES[code]}${code===getTodayCode() ? ' — es tu día de descanso' : ''}.</p></div>`;
-    return;
-  }
-  el.innerHTML = rutinasDelDia.map(({r,ri}) => renderRoutineCardHTML(s, r, ri, false, 'inicio')).join('');
 }
 
 async function loadWeeklyStreak(){
@@ -4252,18 +4375,18 @@ async function loadWeeklyStreak(){
 // ===== MODO ENTRENAMIENTO GUIADO (alumno) =====
 let wpState = null; // { sid, ri, steps:[{ei,setIndex,totalSets}], stepIdx, phase:'exercise'|'rest'|'done', timer }
 
-function startWorkout(sid, ri){
+function startWorkout(sid, diaKey){
   const isReal = currentStudentReal && currentStudentReal.id === sid;
   const s = isReal ? currentStudentReal : STUDENTS[sid];
-  const r = s.routines[ri];
+  const dia = s.rutinaActiva.dias[diaKey];
   const steps = [];
-  r.exercises.forEach((e, ei) => {
-    const totalSets = parseInt(e.sets, 10) || 1;
+  dia.ejercicios.forEach((e, ei) => {
+    const totalSets = parseInt(e.series, 10) || 1;
     for(let set = 1; set <= totalSets; set++) steps.push({ ei, setIndex: set, totalSets });
   });
-  if(!steps.length){ alert('Esta rutina no tiene ejercicios cargados todavía.'); return; }
-  wpState = { sid, ri, steps, stepIdx: 0, phase: 'exercise', timer: null, startedAt: Date.now() };
-  document.getElementById('wpTitle').textContent = r.name;
+  if(!steps.length){ alert('Este día no tiene ejercicios cargados todavía.'); return; }
+  wpState = { sid, diaKey, steps, stepIdx: 0, phase: 'exercise', timer: null, startedAt: Date.now() };
+  document.getElementById('wpTitle').textContent = dia.nombre;
   document.getElementById('workoutPlayerModal').classList.add('active');
   renderWorkoutStep();
 }
@@ -4277,7 +4400,7 @@ function closeWorkoutPlayer(){
 function currentWpExercise(){
   const isReal = currentStudentReal && currentStudentReal.id === wpState.sid;
   const s = isReal ? currentStudentReal : STUDENTS[wpState.sid];
-  return s.routines[wpState.ri].exercises[wpState.steps[wpState.stepIdx].ei];
+  return s.rutinaActiva.dias[wpState.diaKey].ejercicios[wpState.steps[wpState.stepIdx].ei];
 }
 
 function renderWorkoutStep(){
@@ -4293,12 +4416,13 @@ function renderWorkoutStep(){
   }
   const step = wpState.steps[wpState.stepIdx];
   const ex = currentWpExercise();
+  const videoDelEjercicio = ex.videoOverride || ex.video || getVideoDelBanco(ex.nombre);
   if(wpState.phase === 'exercise'){
     body.innerHTML = `
       <span style="font-size:.72rem;color:var(--off-dim);text-transform:uppercase;letter-spacing:.08em;">Ejercicio ${step.ei + 1} · Serie ${step.setIndex}/${step.totalSets}</span>
-      <h2 style="margin:10px 0 4px;font-size:1.6rem;">${ex.ex}</h2>
-      <p style="color:var(--off-dim);font-size:.9rem;margin-bottom:26px;">${ex.reps} repeticiones${ex.weight ? ` · ${ex.weight}kg sugerido` : ''}</p>
-      ${ex.video ? `<a href="${ex.video}" target="_blank" rel="noopener" style="font-size:.82rem;color:var(--forge);font-weight:600;margin-bottom:20px;">▶ Ver cómo se hace</a>` : ''}
+      <h2 style="margin:10px 0 4px;font-size:1.6rem;">${ex.nombre}</h2>
+      <p style="color:var(--off-dim);font-size:.9rem;margin-bottom:26px;">${ex.reps} repeticiones${ex.peso ? ` · ${ex.peso}kg sugerido` : ''}</p>
+      ${videoDelEjercicio ? `<a href="${videoDelEjercicio}" target="_blank" rel="noopener" style="font-size:.82rem;color:var(--forge);font-weight:600;margin-bottom:20px;">▶ Ver cómo se hace</a>` : ''}
       <button class="btn btn-solid" style="padding:16px;font-size:1rem;margin-top:10px;" onclick="handleSetCompleted()">✓ Serie completada</button>
     `;
   }else if(wpState.phase === 'rest'){
@@ -4318,7 +4442,7 @@ function handleSetCompleted(){
   const step = wpState.steps[wpState.stepIdx];
   const esUltimaSerie = step.setIndex === step.totalSets;
   if(esUltimaSerie){
-    markExerciseDoneFromWorkout(wpState.sid, wpState.ri, step.ei);
+    markExerciseDoneFromWorkout(wpState.sid, wpState.diaKey, step.ei);
   }
   const esUltimoPaso = wpState.stepIdx === wpState.steps.length - 1;
   if(esUltimoPaso){
@@ -4327,7 +4451,7 @@ function handleSetCompleted(){
     return;
   }
   wpState.phase = 'rest';
-  wpState.remaining = ex.rest || 30;
+  wpState.remaining = parseDescansoASegundos(ex.descanso) || 30;
   renderWorkoutStep();
   wpState.timer = setInterval(() => {
     wpState.remaining--;
@@ -4351,40 +4475,44 @@ function finishRest(){
   renderWorkoutStep();
 }
 
-function markExerciseDoneFromWorkout(sid, ri, ei){
+function markExerciseDoneFromWorkout(sid, diaKey, ei){
   const isReal = currentStudentReal && currentStudentReal.id === sid;
   const s = isReal ? currentStudentReal : STUDENTS[sid];
-  if(!s.routines[ri].exercises[ei].done){
-    toggleExercise(sid, ri, ei);
+  if(!s.rutinaActiva.dias[diaKey].ejercicios[ei].done){
+    toggleExercise(sid, diaKey, ei);
   }
 }
 
-async function toggleExercise(sid, ri, ei){
+async function toggleExercise(sid, diaKey, ei){
   const isReal = currentStudentReal && currentStudentReal.id === sid;
   const s = isReal ? currentStudentReal : STUDENTS[sid];
-  const ex = s.routines[ri].exercises[ei];
+  const dia = s.rutinaActiva.dias[diaKey];
+  const ex = dia.ejercicios[ei];
   ex.done = !ex.done;
 
   if(ex.done && isReal){
-    const pesoUsado = prompt('¿Qué peso usaste hoy? (kg, opcional — te sirve para la próxima)', ex.lastWeight || ex.weight || '');
-    if(pesoUsado && !isNaN(Number(pesoUsado))) ex.lastWeight = Number(pesoUsado);
+    const pesoUsado = prompt('¿Qué peso usaste hoy? (kg, opcional — te sirve para la próxima)', ex.peso || '');
+    if(pesoUsado && !isNaN(Number(pesoUsado))) ex.peso = String(pesoUsado);
   }
 
   recomputeStudentProgress(s);
 
   let diaFinalizado = false;
-  if(isReal && s.routines[ri].progress === 100){
+  const totalDia = dia.ejercicios.length;
+  const hechosDia = dia.ejercicios.filter(e=>e.done).length;
+  const progresoDia = totalDia ? Math.round(hechosDia/totalDia*100) : 0;
+  if(isReal && progresoDia === 100){
     const hoyStr = new Date().toISOString().slice(0,10);
     s.sessions = s.sessions || [];
-    const yaRegistrada = s.sessions.some(sesion => sesion.date === hoyStr && sesion.ri === ri);
+    const yaRegistrada = s.sessions.some(sesion => sesion.date === hoyStr && sesion.diaKey === diaKey);
     if(!yaRegistrada){
-      const { durationMin, calorias } = estimateSessionStats(s, ri);
-      s.sessions = [...s.sessions.slice(-99), { date: hoyStr, day: s.routines[ri].day, routineName: s.routines[ri].name, ri, durationMin, calorias }];
+      const { durationMin, calorias } = estimateSessionStats(s, diaKey);
+      s.sessions = [...s.sessions.slice(-99), { date: hoyStr, diaKey, routineName: dia.nombre, durationMin, calorias }];
       s.workouts = (s.workouts || 0) + 1;
       s.caloriesTotal = (s.caloriesTotal || 0) + calorias;
       s.notifications = s.notifications || [];
       s.notifications = [...s.notifications.slice(-19), {
-        icon: '✅', text: `¡Día finalizado! Completaste tu rutina de ${s.routines[ri].name} · ~${calorias} kcal`, ts: new Date().toISOString()
+        icon: '✅', text: `¡Día finalizado! Completaste ${dia.nombre} · ~${calorias} kcal`, ts: new Date().toISOString()
       }];
       diaFinalizado = true;
     }
@@ -4393,51 +4521,54 @@ async function toggleExercise(sid, ri, ei){
   if(isReal){
     try{
       await window.fb.setDoc(window.fb.doc(window.fb.db, 'users', sid), {
-        routines: s.routines, completion: s.completion, sessions: s.sessions, workouts: s.workouts, caloriesTotal: s.caloriesTotal, notifications: s.notifications
+        rutinaActiva: s.rutinaActiva, completion: s.completion, sessions: s.sessions, workouts: s.workouts, caloriesTotal: s.caloriesTotal, notifications: s.notifications
       }, { merge: true });
     }catch(err){ console.error('No se pudo guardar el progreso:', err); }
     renderMisRutinas();
     renderMiPerfil();
     renderMiProgreso();
     renderMisNotif();
-    if(currentInicioDia) renderInicioRutinaDelDia(currentInicioDia);
     if(diaFinalizado){
       showToast('🎉 ¡Día finalizado! Completaste toda tu rutina de hoy.', false);
     }
   }else{
     saveProgress();
-    const chk = document.getElementById(`misr-chk-${ri}-${ei}`);
+    const chk = document.getElementById(`misr-chk-${diaKey}-${ei}`);
     if(chk){
       chk.classList.toggle('done', ex.done);
       chk.innerHTML = `<span class="box"></span>${ex.done ? 'Completado' : 'Marcar hecho'}`;
     }
-    const rprog = document.getElementById(`misr-rprog-${ri}`);
-    const rbar = document.getElementById(`misr-rbar-${ri}`);
-    if(rprog) rprog.textContent = s.routines[ri].progress + '% completado';
-    if(rbar) rbar.style.width = s.routines[ri].progress + '%';
+    const rprog = document.getElementById(`misr-rprog-${diaKey}`);
+    const rbar = document.getElementById(`misr-rbar-${diaKey}`);
+    if(rprog) rprog.textContent = progresoDia + '% completado';
+    if(rbar) rbar.style.width = progresoDia + '%';
   }
 }
 
 function recomputeStudentProgress(s){
-  s.routines.forEach(r=>{
-    const total = r.exercises.length;
-    const done = r.exercises.filter(e=>e.done).length;
-    r.progress = total ? Math.round(done/total*100) : 0;
+  if(!s.rutinaActiva){ s.completion = 0; return; }
+  const claves = ordenarClavesDias(s.rutinaActiva.dias);
+  let totalGeneral = 0, hechosGeneral = 0;
+  claves.forEach(dk => {
+    const ejercicios = s.rutinaActiva.dias[dk].ejercicios;
+    totalGeneral += ejercicios.length;
+    hechosGeneral += ejercicios.filter(e=>e.done).length;
   });
-  s.completion = s.routines.length ? Math.round(s.routines.reduce((a,r)=>a+r.progress,0)/s.routines.length) : 0;
+  s.completion = totalGeneral ? Math.round(hechosGeneral/totalGeneral*100) : 0;
 }
 
-// Cumplimiento específico del día de hoy (no el promedio de todas las rutinas de la semana).
+// Cumplimiento general de la rutina activa (ya no hay "rutina de hoy" — hay una sola rutina con varios días).
 function todaysCompletion(s){
-  const hoy = getTodayCode();
-  const rutinasDeHoy = (s.routines || []).filter(r => r.day === hoy);
-  if(!rutinasDeHoy.length) return null; // sin rutina asignada hoy
-  return Math.round(rutinasDeHoy.reduce((a,r)=>a+r.progress,0) / rutinasDeHoy.length);
+  if(!s.rutinaActiva) return null;
+  return s.completion || 0;
 }
 
 function saveProgress(){
   try{
-    const state = STUDENTS.map(s => s.routines.map(r => r.exercises.map(e => e.done)));
+    const state = STUDENTS.map(s => {
+      const claves = s.rutinaActiva ? ordenarClavesDias(s.rutinaActiva.dias) : [];
+      return claves.map(dk => s.rutinaActiva.dias[dk].ejercicios.map(e => e.done));
+    });
     localStorage.setItem('forja_progress', JSON.stringify(state));
   }catch(err){ /* localStorage no disponible: el progreso no persiste entre sesiones */ }
 }
@@ -4447,12 +4578,14 @@ function loadProgress(){
     const raw = localStorage.getItem('forja_progress');
     if(!raw) return;
     const state = JSON.parse(raw);
-    state.forEach((routines, si) => {
-      if(!STUDENTS[si]) return;
-      routines.forEach((exs, ri) => {
-        if(!STUDENTS[si].routines[ri]) return;
+    state.forEach((dias, si) => {
+      if(!STUDENTS[si] || !STUDENTS[si].rutinaActiva) return;
+      const claves = ordenarClavesDias(STUDENTS[si].rutinaActiva.dias);
+      dias.forEach((exs, di) => {
+        const dk = claves[di];
+        if(!dk) return;
         exs.forEach((done, ei) => {
-          if(STUDENTS[si].routines[ri].exercises[ei]) STUDENTS[si].routines[ri].exercises[ei].done = done;
+          if(STUDENTS[si].rutinaActiva.dias[dk].ejercicios[ei]) STUDENTS[si].rutinaActiva.dias[dk].ejercicios[ei].done = done;
         });
       });
     });
@@ -4513,7 +4646,7 @@ function renderMiProgreso(){
     { key:'workouts', num: s.workouts || 0, label: 'Entrenamientos realizados' },
     { key:'calories', num: `${s.caloriesTotal || 0}`, label: 'Calorías quemadas (total)' },
     { key:'sesiones', num: sesionesEstaSemana, label: 'Sesiones esta semana' },
-    { key:'completion', num: cumplimientoHoy === null ? '—' : `${cumplimientoHoy}%`, label: cumplimientoHoy === null ? 'Sin rutina asignada hoy' : 'Cumplimiento de rutina de hoy' },
+    { key:'completion', num: cumplimientoHoy === null ? '—' : `${cumplimientoHoy}%`, label: cumplimientoHoy === null ? 'Sin rutina asignada' : 'Cumplimiento de tu rutina' },
   ];
   const focusKey = focus.metric === 'balance' ? null : (focus.metric === 'calories' ? 'calories' : focus.metric === 'sesiones' ? 'sesiones' : null);
 

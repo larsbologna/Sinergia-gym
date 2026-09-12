@@ -1102,6 +1102,10 @@
           <input type="number" id="obEdad" min="12" max="99" required>
         </div>
         <div>
+          <label for="obDni">DNI</label>
+          <input type="text" id="obDni" inputmode="numeric" placeholder="Sin puntos" required>
+        </div>
+        <div>
           <label for="obPeso">Peso (kg)</label>
           <input type="number" id="obPeso" min="30" max="250" step="0.1" required>
         </div>
@@ -1195,8 +1199,11 @@
         <div class="card">
           <h4>Ingreso manual</h4>
           <p style="font-size:.8rem;margin-bottom:14px;">Si el alumno no tiene el QR a mano, buscalo por nombre y registrá el ingreso manualmente.</p>
-          <input placeholder="Buscar alumno..." style="margin-bottom:14px;">
-          <button class="btn btn-solid btn-small" style="width:100%;" onclick="alert('Se conecta cuando tengamos la lista real de alumnos (próximo paso)')">Registrar ingreso</button>
+          <div style="position:relative;">
+            <input id="buscarAlumnoIngresoInput" placeholder="Escribí el nombre del alumno..." oninput="filtrarAlumnosIngresoManual()" autocomplete="off" style="margin-bottom:0;">
+            <div id="listaAlumnosIngresoManual" style="display:none;position:absolute;top:100%;left:0;right:0;z-index:20;background:var(--carbon);border:1px solid rgba(242,237,228,.2);border-radius:8px;margin-top:4px;max-height:220px;overflow-y:auto;box-shadow:0 8px 24px rgba(0,0,0,.4);"></div>
+          </div>
+          <div id="ingresoManualResult" style="margin-top:14px;font-size:.85rem;min-height:20px;"></div>
         </div>
       </div>
       <div class="card">
@@ -1284,6 +1291,7 @@
           <div><label>Nombre y apellido</label><input type="text" id="asNombre" required></div>
           <div><label>Email</label><input type="email" id="asEmail" required></div>
           <div><label>Teléfono</label><input type="tel" id="asTel"></div>
+          <div><label>DNI</label><input type="text" id="asDni" inputmode="numeric" placeholder="Opcional, sin puntos"></div>
           <div class="grid grid-2" style="gap:10px;">
             <div><label>Edad</label><input type="number" id="asEdad" placeholder="Ej: 28"></div>
             <div><label>Objetivo</label>
@@ -1831,7 +1839,7 @@ const STUDENTS = NAMES.map((name, i) => {
 loadProgress();
 STUDENTS.forEach(recomputeStudentProgress);
 
-function fmtMoney(n){ return n ? '$' + n.toLocaleString('es-AR') : '—'; }
+function fmtMoney(n){ return (n || n === 0) ? '$' + n.toLocaleString('es-AR') : '—'; }
 function fmtDate(d){ return d ? d.toLocaleDateString('es-AR') : 'Sin definir'; }
 function badgeFor(q){
   if(q==='ok') return '<span class="badge ok">Al día</span>';
@@ -2190,6 +2198,7 @@ async function handleOnboarding(event){
   const user = pendingOnboardingUser;
   if(!user){ errorEl.textContent = 'Se perdió la sesión, recargá la página e intentá de nuevo.'; return false; }
   const age = Number(document.getElementById('obEdad').value);
+  const dni = document.getElementById('obDni').value.trim();
   const weight = Number(document.getElementById('obPeso').value);
   const height = Number(document.getElementById('obAltura').value);
   const goal = document.getElementById('obObjetivo').value;
@@ -2199,10 +2208,10 @@ async function handleOnboarding(event){
     const profileData = {
       role: 'alumno', name: user.displayName || 'Alumno', email: user.email,
       createdAt: new Date().toISOString(),
-      age, weight, height, goal, profileCompleted: true,
+      age, dni, weight, height, goal, profileCompleted: true,
       joinDate: new Date().toLocaleDateString('es-AR', {month:'2-digit', year:'numeric'}),
       plan: null, membership: 'Pendiente', due: null, amount: 0,
-      completion: 0, routines: [], weightHistory: [weight], workouts: 0, goalsReached: 0
+      completion: 0, rutinaActiva: null, weightHistory: [weight], workouts: 0, goalsReached: 0
     };
     await window.fb.setDoc(window.fb.doc(window.fb.db, 'users', user.uid), profileData, { merge: true });
     const snap = await window.fb.getDoc(window.fb.doc(window.fb.db, 'users', user.uid));
@@ -2278,7 +2287,7 @@ function normalizeStudentData(uid, data){
   const frozen = !!data.frozen;
   return {
     id: uid, name, initials, color: 'var(--forge)',
-    age: data.age, weight: data.weight, height: data.height, goal: data.goal || 'Sin definir',
+    age: data.age, dni: data.dni || '', weight: data.weight, height: data.height, goal: data.goal || 'Sin definir',
     joinDate: data.joinDate || '', plan: data.plan || 'Sin asignar',
     membership: frozen ? 'Congelada' : (data.plan ? 'Activa' : 'Pendiente'),
     quota: computeQuotaStatus(due, frozen), due, cuotaInicio, amount: data.amount || 0,
@@ -2360,7 +2369,59 @@ function stopScanner(){
   }
 }
 
-let recentScans = {}; // uid -> timestamp del último ingreso registrado
+// ===== Ingreso manual (búsqueda por nombre, sin necesitar el QR) =====
+function quitarAcentos(texto){
+  return texto.normalize('NFD').replace(/[\u0300-\u036f]/g, '');
+}
+
+function filtrarAlumnosIngresoManual(){
+  const texto = quitarAcentos(document.getElementById('buscarAlumnoIngresoInput').value.trim().toLowerCase());
+  const lista = document.getElementById('listaAlumnosIngresoManual');
+  if(!texto){ lista.style.display = 'none'; lista.innerHTML = ''; return; }
+  const coincidencias = ALUMNOS_REALES.filter(s => quitarAcentos(s.name.toLowerCase()).includes(texto)).slice(0, 8);
+  if(!coincidencias.length){
+    lista.innerHTML = '<div style="padding:10px 14px;font-size:.82rem;color:var(--off-dim);">No se encontró ningún alumno con ese nombre.</div>';
+    lista.style.display = 'block';
+    return;
+  }
+  lista.innerHTML = coincidencias.map(s => `
+    <div style="padding:10px 14px;cursor:pointer;display:flex;justify-content:space-between;align-items:center;gap:10px;"
+      onmouseover="this.style.background='rgba(255,255,255,.06)'" onmouseout="this.style.background='transparent'"
+      onclick="registrarIngresoManual('${s.id}')">
+      <span>${s.name}</span>${badgeFor(s.quota)}
+    </div>`).join('');
+  lista.style.display = 'block';
+}
+
+async function registrarIngresoManual(uid){
+  const s = ALUMNOS_REALES.find(a => a.id === uid);
+  const resultEl = document.getElementById('ingresoManualResult');
+  document.getElementById('listaAlumnosIngresoManual').style.display = 'none';
+  document.getElementById('buscarAlumnoIngresoInput').value = '';
+  if(!s){ resultEl.innerHTML = '<span style="color:#e0574a;">No se encontró el alumno.</span>'; return; }
+  resultEl.textContent = 'Registrando...';
+  try{
+    await window.fb.addDoc(
+      window.fb.collection(window.fb.db, 'users', uid, 'checkins'),
+      { timestamp: window.fb.serverTimestamp() }
+    );
+    resultEl.innerHTML = `<span style="color:#7fbf7f;">✓ Ingreso registrado: ${s.name}</span><div style="margin-top:6px;">${badgeFor(s.quota)} <span style="color:var(--off-dim);">· Vence ${fmtDate(s.due)}</span></div>`;
+    if(document.getElementById('ingresosListaInicio')) loadIngresos('hoy', 'ingresosListaInicio');
+  }catch(err){
+    resultEl.innerHTML = `<span style="color:#e0574a;">No se pudo registrar (${err.code || err.message}).</span>`;
+  }
+  setTimeout(() => { if(resultEl) resultEl.innerHTML = ''; }, 7000);
+}
+
+// Cierra la lista de sugerencias si se hace click afuera.
+document.addEventListener('click', (e) => {
+  const lista = document.getElementById('listaAlumnosIngresoManual');
+  const input = document.getElementById('buscarAlumnoIngresoInput');
+  if(lista && lista.style.display === 'block' && e.target !== input && !lista.contains(e.target)){
+    lista.style.display = 'none';
+  }
+});
+
 
 async function onScanSuccess(decodedText){
   if(scannerBusy) return;
@@ -2837,6 +2898,7 @@ async function handleAddStudent(event){
   const nombre = document.getElementById('asNombre').value.trim();
   const email = document.getElementById('asEmail').value.trim();
   const telefono = document.getElementById('asTel').value.trim();
+  const dni = document.getElementById('asDni').value.trim();
   const planNombre = document.getElementById('asPlan').value;
   const monto = Number(document.getElementById('asMonto').value) || 0;
   const vencInput = document.getElementById('asVenc').value; // YYYY-MM-DD
@@ -2861,12 +2923,12 @@ async function handleAddStudent(event){
     const altura = Number(document.getElementById('asAltura').value) || 0;
     const objetivo = document.getElementById('asObjetivo').value || 'Sin definir';
     const profileData = {
-      role: 'alumno', name: nombre, email, telefono,
+      role: 'alumno', name: nombre, email, telefono, dni,
       createdAt: new Date().toISOString(), profileCompleted: true,
       goal: objetivo, age: edad, weight: peso, height: altura,
       joinDate: new Date().toLocaleDateString('es-AR', {month:'2-digit', year:'numeric'}),
       plan: planNombre || 'Sin asignar', amount: monto, cuotaInicio, membership: 'Activa',
-      completion: 0, routines: [], weightHistory: peso ? [peso] : [0], workouts: 0, goalsReached: 0,
+      completion: 0, rutinaActiva: null, weightHistory: peso ? [peso] : [0], workouts: 0, goalsReached: 0,
       caloriesTotal: 0, pagos: [], sessions: [], notifications: [],
       accessPass: pass
     };
@@ -2991,6 +3053,45 @@ function mostrarQrAcceso(uid){
   QRCode.toCanvas(document.getElementById('qrAccesoCanvasEl'), linkAcceso, { width: 220, margin: 1 }, () => {});
 }
 
+function mostrarEdicionDatosAlumno(uid){
+  const s = ALUMNOS_REALES.find(a => a.id === uid);
+  if(!s) return;
+  document.getElementById('perfilDatosPersonalesCard').innerHTML = `
+    <h4>Editar datos personales</h4>
+    <div style="margin-bottom:10px;"><label style="font-size:.76rem;color:var(--off-dim);">Edad</label><input type="number" id="pdEdad" value="${s.age || ''}" style="width:100%;background:var(--black);border:1px solid rgba(242,237,228,.16);border-radius:8px;padding:8px;color:var(--off);"></div>
+    <div style="margin-bottom:10px;"><label style="font-size:.76rem;color:var(--off-dim);">DNI</label><input type="text" id="pdDni" value="${s.dni || ''}" inputmode="numeric" style="width:100%;background:var(--black);border:1px solid rgba(242,237,228,.16);border-radius:8px;padding:8px;color:var(--off);"></div>
+    <div style="margin-bottom:10px;"><label style="font-size:.76rem;color:var(--off-dim);">Peso (kg)</label><input type="number" id="pdPeso" value="${s.weight || ''}" step="0.1" style="width:100%;background:var(--black);border:1px solid rgba(242,237,228,.16);border-radius:8px;padding:8px;color:var(--off);"></div>
+    <div style="margin-bottom:10px;"><label style="font-size:.76rem;color:var(--off-dim);">Altura (cm)</label><input type="number" id="pdAltura" value="${s.height || ''}" style="width:100%;background:var(--black);border:1px solid rgba(242,237,228,.16);border-radius:8px;padding:8px;color:var(--off);"></div>
+    <div style="margin-bottom:14px;"><label style="font-size:.76rem;color:var(--off-dim);">Objetivo</label>
+      <select id="pdObjetivo" style="width:100%;background:var(--black);border:1px solid rgba(242,237,228,.16);border-radius:8px;padding:8px;color:var(--off);">
+        ${['Sin definir','Pérdida de grasa','Ganancia muscular','Resistencia','Salud general'].map(g => `<option value="${g}" ${s.goal===g?'selected':''}>${g}</option>`).join('')}
+      </select>
+    </div>
+    <div class="auth-error" id="pdError" style="margin-bottom:10px;"></div>
+    <div style="display:flex;gap:8px;">
+      <button type="button" class="btn btn-solid btn-small" onclick="guardarDatosAlumno('${uid}')">Guardar</button>
+      <button type="button" class="btn btn-ghost btn-small" onclick="renderProfile('${uid}')">Cancelar</button>
+    </div>`;
+}
+
+async function guardarDatosAlumno(uid){
+  const errorEl = document.getElementById('pdError');
+  const s = ALUMNOS_REALES.find(a => a.id === uid);
+  const age = Number(document.getElementById('pdEdad').value) || s.age;
+  const dni = document.getElementById('pdDni').value.trim();
+  const weight = Number(document.getElementById('pdPeso').value) || s.weight;
+  const height = Number(document.getElementById('pdAltura').value) || s.height;
+  const goal = document.getElementById('pdObjetivo').value;
+  try{
+    await window.fb.setDoc(window.fb.doc(window.fb.db, 'users', uid), { age, dni, weight, height, goal }, { merge: true });
+    s.age = age; s.dni = dni; s.weight = weight; s.height = height; s.goal = goal;
+    renderProfile(uid);
+    showToast('✅ Datos actualizados.', false);
+  }catch(err){
+    errorEl.textContent = 'No se pudo guardar (' + (err.code || err.message) + ').';
+  }
+}
+
 function renderProfile(uid){
   const s = ALUMNOS_REALES.find(a => a.id === uid);
   if(!s){ document.getElementById('perfilContent').innerHTML = '<p>No se encontró el alumno.</p>'; return; }
@@ -3003,13 +3104,17 @@ function renderProfile(uid){
       <div style="margin-left:auto;">${badgeFor(s.quota)}</div>
     </div>
     <div class="grid grid-3" style="margin-bottom:18px;">
-      <div class="card"><h4>Datos personales</h4>
+      <div class="card" id="perfilDatosPersonalesCard"><h4>Datos personales</h4>
         <div class="field-row"><span>Edad</span><span>${s.age || '—'} años</span></div>
+        <div class="field-row"><span>DNI</span><span>${s.dni || '—'}</span></div>
         <div class="field-row"><span>Peso</span><span>${s.weight || '—'} kg</span></div>
         <div class="field-row"><span>Altura</span><span>${s.height || '—'} cm</span></div>
         <div class="field-row"><span>Objetivo</span><span>${s.goal}</span></div>
         <div class="field-row"><span>Ingreso</span><span>${s.joinDate || '—'}</span></div>
-        ${s.accessPass ? `<div style="margin-top:12px;"><span class="btn btn-ghost btn-small" onclick="mostrarQrAcceso('${s.id}')">📱 Ver QR de acceso</span></div>` : ''}
+        <div style="display:flex;gap:8px;margin-top:12px;flex-wrap:wrap;">
+          <span class="btn btn-ghost btn-small" onclick="mostrarEdicionDatosAlumno('${s.id}')">✏️ Editar datos</span>
+          ${s.accessPass ? `<span class="btn btn-ghost btn-small" onclick="mostrarQrAcceso('${s.id}')">📱 Ver QR de acceso</span>` : ''}
+        </div>
       </div>
       <div class="card"><h4>Cuota actual</h4>
         <div class="field-row"><span>Plan</span><span>${s.plan}</span></div>
@@ -3061,7 +3166,7 @@ function renderProfile(uid){
   `;
 }
 
-const COLOR_HEX_SUPERSET = { rojo:'#e0574a', amarillo:'#e0a53f', azul:'#0049CD', verde:'#3fae6a', violeta:'#8a5cf6' };
+const COLOR_HEX_SUPERSET = { rojo:'#e0574a', amarillo:'#e0a53f', azul:'#0049CD', verde:'#3fae6a' };
 
 function renderRutinaActivaAdmin(s){
   const claves = ordenarClavesDias(s.rutinaActiva.dias);
@@ -3107,7 +3212,7 @@ function renderDiaCardHTML(s, diaKey, isAdmin, ctx){
           const borde = grupo.color ? (COLOR_HEX_SUPERSET[grupo.color] || color) : 'transparent';
           return `
           <div style="${esSuperset ? `border-left:4px solid ${borde};padding-left:12px;margin-bottom:10px;background:${borde}11;border-radius:0 8px 8px 0;` : ''}">
-            ${esSuperset ? `<p style="font-size:.7rem;text-transform:uppercase;letter-spacing:.08em;color:${borde};font-weight:700;padding-top:8px;">Superset</p>` : ''}
+            ${esSuperset ? `<p style="font-size:.78rem;letter-spacing:.02em;color:${borde};font-weight:700;padding-top:8px;">Superset ${grupo.color.charAt(0).toUpperCase()+grupo.color.slice(1)}: ${grupo.items.map(it=>it.e.nombre).join(' + ')} — Hacer alternado</p>` : ''}
             ${grupo.items.map(({e,ei}) => { const videoMostrar = e.videoOverride || e.video || getVideoDelBanco(e.nombre); return `
               <div style="padding:14px 0;border-bottom:1px solid rgba(242,237,228,.12);">
                 <div class="exercise" style="border:none;padding:0;">
@@ -3174,43 +3279,72 @@ function crearDiaVacio(nombre){
 }
 
 const RUTINAS_PLANTILLAS = {
-  calistenia: { id:"calistenia", nombre: "Calistenia", cantidadDias: 1, dias: { dia1: { nombre:"Día 1", ejercicios: [
-    { id:"c1", nombre:"Dominadas", series:"4", reps:"8-12", descanso:"90s", peso:"", color:"", video:"" },
-    { id:"c2", nombre:"Fondos en paralelas", series:"4", reps:"10-15", descanso:"90s", peso:"", color:"", video:"" },
-    { id:"c3", nombre:"Flexiones", series:"4", reps:"15-20", descanso:"60s", peso:"", color:"", video:"" },
-    { id:"c4", nombre:"Sentadilla pistol asistida", series:"3", reps:"8 c/l", descanso:"60s", peso:"", color:"", video:"" },
-    { id:"c5", nombre:"Plancha", series:"3", reps:"45s", descanso:"60s", peso:"", color:"", video:"" }
-  ]}}},
-  acond_fisico: { id:"acond_fisico", nombre: "Acond. Físico", cantidadDias: 1, dias: { dia1: { nombre:"Día 1", ejercicios: [
-    { id:"a1", nombre:"Burpees", series:"4", reps:"15", descanso:"60s", peso:"", color:"", video:"" },
-    { id:"a2", nombre:"Jumping Jacks", series:"4", reps:"40s", descanso:"45s", peso:"", color:"", video:"" },
-    { id:"a3", nombre:"Mountain Climbers", series:"3", reps:"30s", descanso:"45s", peso:"", color:"", video:"" },
-    { id:"a4", nombre:"Sentadilla con salto", series:"4", reps:"15", descanso:"60s", peso:"", color:"", video:"" },
-    { id:"a5", nombre:"Abdominales bicicleta", series:"3", reps:"20", descanso:"45s", peso:"", color:"", video:"" }
-  ]}}},
-  full_body: { id:"full_body", nombre: "Full Body", cantidadDias: 1, dias: { dia1: { nombre:"Día 1", ejercicios: [
-    { id:"f1", nombre:"Sentadilla con barra", series:"4", reps:"10", descanso:"90s", peso:"20", color:"", video:"" },
-    { id:"f2", nombre:"Press banca", series:"4", reps:"8-10", descanso:"90s", peso:"15", color:"", video:"" },
-    { id:"f3", nombre:"Peso muerto", series:"3", reps:"8", descanso:"120s", peso:"30", color:"", video:"" },
-    { id:"f4", nombre:"Remo con barra", series:"3", reps:"10", descanso:"90s", peso:"15", color:"", video:"" },
-    { id:"f5", nombre:"Press militar", series:"3", reps:"10", descanso:"90s", peso:"10", color:"", video:"" }
-  ]}}},
-  hipertrofia_sup: { id:"hipertrofia_sup", nombre: "Hipertrofia Superior", cantidadDias: 1, dias: { dia1: { nombre:"Día 1", ejercicios: [
-    { id:"h1", nombre:"Press banca plano", series:"4", reps:"8-10", descanso:"90s", peso:"15", color:"", video:"" },
-    { id:"h2", nombre:"Remo con mancuerna", series:"4", reps:"10-12", descanso:"75s", peso:"12", color:"", video:"" },
-    { id:"h3", nombre:"Press militar mancuernas", series:"3", reps:"10", descanso:"75s", peso:"8", color:"", video:"" },
-    { id:"h4", nombre:"Jalón al pecho", series:"3", reps:"12", descanso:"60s", peso:"25", color:"", video:"" },
-    { id:"h5", nombre:"Curl de bíceps", series:"3", reps:"12", descanso:"45s", peso:"8", color:"amarillo", video:"" },
-    { id:"h6", nombre:"Extensión de tríceps", series:"3", reps:"12", descanso:"45s", peso:"8", color:"amarillo", video:"" }
-  ]}}},
-  piernas_gluteos: { id:"piernas_gluteos", nombre: "Piernas y Glúteos", cantidadDias: 1, dias: { dia1: { nombre:"Día 1", ejercicios: [
-    { id:"p1", nombre:"Sentadilla profunda", series:"4", reps:"10-12", descanso:"90s", peso:"20", color:"", video:"" },
-    { id:"p2", nombre:"Peso muerto rumano", series:"4", reps:"10", descanso:"90s", peso:"25", color:"", video:"" },
-    { id:"p3", nombre:"Zancadas caminando", series:"3", reps:"12 c/l", descanso:"60s", peso:"10", color:"", video:"" },
-    { id:"p4", nombre:"Hip thrust", series:"4", reps:"12-15", descanso:"75s", peso:"30", color:"", video:"" },
-    { id:"p5", nombre:"Extensión de cuádriceps", series:"3", reps:"15", descanso:"45s", peso:"15", color:"azul", video:"" },
-    { id:"p6", nombre:"Curl femoral", series:"3", reps:"12", descanso:"45s", peso:"12", color:"azul", video:"" }
-  ]}}}
+  adaptacion_2x: { id:"adaptacion_2x", nombre:"Plan Adaptación 2 veces", cantidadDias:2, dias: {
+    dia1: { nombre:"Día 1 - Tren superior", ejercicios: [
+      { id:"ad1", nombre:"Press banca", series:"3", reps:"10-12", descanso:"60s", peso:"10", color:"", video:"", grupo:"A" },
+      { id:"ad2", nombre:"Remo con mancuerna", series:"3", reps:"10-12", descanso:"60s", peso:"8", color:"", video:"", grupo:"A" },
+      { id:"ad3", nombre:"Press militar mancuernas", series:"3", reps:"10", descanso:"60s", peso:"6", color:"", video:"", grupo:"A" },
+      { id:"ad4", nombre:"Plancha", series:"3", reps:"30s", descanso:"45s", peso:"", color:"", video:"", grupo:"A" }
+    ]},
+    dia2: { nombre:"Día 2 - Tren inferior", ejercicios: [
+      { id:"ad5", nombre:"Sentadilla con barra", series:"3", reps:"10-12", descanso:"75s", peso:"15", color:"", video:"", grupo:"A" },
+      { id:"ad6", nombre:"Peso muerto rumano", series:"3", reps:"10", descanso:"75s", peso:"15", color:"", video:"", grupo:"A" },
+      { id:"ad7", nombre:"Zancadas caminando", series:"3", reps:"12 c/l", descanso:"60s", peso:"8", color:"", video:"", grupo:"A" },
+      { id:"ad8", nombre:"Abdominales bicicleta", series:"3", reps:"20", descanso:"45s", peso:"", color:"", video:"", grupo:"A" }
+    ]}
+  }},
+  full_body_3x: { id:"full_body_3x", nombre:"Full Body 3 veces", cantidadDias:3, dias: {
+    dia1: { nombre:"Día 1 - Empuje", ejercicios: [
+      { id:"fb1", nombre:"Press banca", series:"4", reps:"8-10", descanso:"90s", peso:"15", color:"", video:"", grupo:"A" },
+      { id:"fb2", nombre:"Press militar mancuernas", series:"3", reps:"10", descanso:"75s", peso:"8", color:"", video:"", grupo:"A" },
+      { id:"fb3", nombre:"Fondos en paralelas", series:"3", reps:"10-15", descanso:"75s", peso:"", color:"amarillo", video:"", grupo:"B" },
+      { id:"fb4", nombre:"Extensión de tríceps", series:"3", reps:"12", descanso:"45s", peso:"8", color:"amarillo", video:"", grupo:"B" }
+    ]},
+    dia2: { nombre:"Día 2 - Tracción", ejercicios: [
+      { id:"fb5", nombre:"Peso muerto", series:"4", reps:"8", descanso:"120s", peso:"30", color:"", video:"", grupo:"A" },
+      { id:"fb6", nombre:"Remo con barra", series:"3", reps:"10", descanso:"90s", peso:"15", color:"", video:"", grupo:"A" },
+      { id:"fb7", nombre:"Jalón al pecho", series:"3", reps:"12", descanso:"60s", peso:"25", color:"azul", video:"", grupo:"B" },
+      { id:"fb8", nombre:"Curl de bíceps", series:"3", reps:"12", descanso:"45s", peso:"8", color:"azul", video:"", grupo:"B" }
+    ]},
+    dia3: { nombre:"Día 3 - Completo", ejercicios: [
+      { id:"fb9", nombre:"Sentadilla con barra", series:"4", reps:"10", descanso:"90s", peso:"20", color:"", video:"", grupo:"A" },
+      { id:"fb10", nombre:"Zancadas caminando", series:"3", reps:"12 c/l", descanso:"60s", peso:"10", color:"", video:"", grupo:"A" },
+      { id:"fb11", nombre:"Hip thrust", series:"3", reps:"12-15", descanso:"75s", peso:"20", color:"", video:"", grupo:"A" },
+      { id:"fb12", nombre:"Plancha", series:"3", reps:"45s", descanso:"60s", peso:"", color:"", video:"", grupo:"A" }
+    ]}
+  }},
+  hipertrofia_5x: { id:"hipertrofia_5x", nombre:"Hipertrofia 5 veces", cantidadDias:5, dias: {
+    dia1: { nombre:"Día 1 - Pecho y tríceps", ejercicios: [
+      { id:"h1", nombre:"Press banca plano", series:"4", reps:"8-10", descanso:"90s", peso:"15", color:"", video:"", grupo:"A" },
+      { id:"h2", nombre:"Press inclinado mancuernas", series:"3", reps:"10", descanso:"75s", peso:"10", color:"", video:"", grupo:"A" },
+      { id:"h3", nombre:"Fondos en paralelas", series:"3", reps:"10-15", descanso:"60s", peso:"", color:"amarillo", video:"", grupo:"B" },
+      { id:"h4", nombre:"Extensión de tríceps", series:"3", reps:"12", descanso:"45s", peso:"8", color:"amarillo", video:"", grupo:"B" }
+    ]},
+    dia2: { nombre:"Día 2 - Espalda y bíceps", ejercicios: [
+      { id:"h5", nombre:"Peso muerto", series:"4", reps:"8", descanso:"120s", peso:"30", color:"", video:"", grupo:"A" },
+      { id:"h6", nombre:"Remo con barra", series:"3", reps:"10", descanso:"90s", peso:"15", color:"", video:"", grupo:"A" },
+      { id:"h7", nombre:"Jalón al pecho", series:"3", reps:"12", descanso:"60s", peso:"25", color:"azul", video:"", grupo:"B" },
+      { id:"h8", nombre:"Curl de bíceps", series:"3", reps:"12", descanso:"45s", peso:"8", color:"azul", video:"", grupo:"B" }
+    ]},
+    dia3: { nombre:"Día 3 - Piernas", ejercicios: [
+      { id:"h9", nombre:"Sentadilla profunda", series:"4", reps:"10-12", descanso:"90s", peso:"20", color:"", video:"", grupo:"A" },
+      { id:"h10", nombre:"Peso muerto rumano", series:"4", reps:"10", descanso:"90s", peso:"25", color:"", video:"", grupo:"A" },
+      { id:"h11", nombre:"Extensión de cuádriceps", series:"3", reps:"15", descanso:"45s", peso:"15", color:"verde", video:"", grupo:"B" },
+      { id:"h12", nombre:"Curl femoral", series:"3", reps:"12", descanso:"45s", peso:"12", color:"verde", video:"", grupo:"B" }
+    ]},
+    dia4: { nombre:"Día 4 - Hombros", ejercicios: [
+      { id:"h13", nombre:"Press militar mancuernas", series:"4", reps:"10", descanso:"75s", peso:"8", color:"", video:"", grupo:"A" },
+      { id:"h14", nombre:"Elevaciones laterales", series:"3", reps:"15", descanso:"45s", peso:"5", color:"", video:"", grupo:"A" },
+      { id:"h15", nombre:"Pájaros con mancuerna", series:"3", reps:"15", descanso:"45s", peso:"5", color:"rojo", video:"", grupo:"B" },
+      { id:"h16", nombre:"Encogimientos", series:"3", reps:"15", descanso:"45s", peso:"10", color:"rojo", video:"", grupo:"B" }
+    ]},
+    dia5: { nombre:"Día 5 - Full body y core", ejercicios: [
+      { id:"h17", nombre:"Sentadilla con salto", series:"3", reps:"15", descanso:"60s", peso:"", color:"", video:"", grupo:"A" },
+      { id:"h18", nombre:"Burpees", series:"3", reps:"15", descanso:"60s", peso:"", color:"", video:"", grupo:"A" },
+      { id:"h19", nombre:"Plancha", series:"3", reps:"45s", descanso:"45s", peso:"", color:"", video:"", grupo:"A" },
+      { id:"h20", nombre:"Abdominales bicicleta", series:"3", reps:"20", descanso:"45s", peso:"", color:"", video:"", grupo:"A" }
+    ]}
+  }}
 };
 
 // Orden estable de las claves de día (dia1, dia2, dia3...) para pestañas y previews.
@@ -3231,8 +3365,36 @@ async function loadRutinasPlantillas(){
     if(snap.exists() && snap.data().plantillas){
       Object.keys(RUTINAS_PLANTILLAS).forEach(k => delete RUTINAS_PLANTILLAS[k]);
       Object.assign(RUTINAS_PLANTILLAS, snap.data().plantillas);
+      migrarPlantillasAlFormatoConDias();
     }
   }catch(err){ console.error('Error cargando las plantillas de rutina:', err); }
+}
+
+// Arregla plantillas guardadas en un formato viejo/incompleto (sin "dias", o con "dias" vacío/roto)
+// para que siempre terminen con al menos un día real con sus ejercicios adentro.
+function migrarPlantillasAlFormatoConDias(){
+  Object.keys(RUTINAS_PLANTILLAS).forEach(key => {
+    const p = RUTINAS_PLANTILLAS[key];
+    if(!p) return;
+    p.id = p.id || key;
+    if(!p.dias || typeof p.dias !== 'object' || !Object.keys(p.dias).length){
+      // Formato viejo: la plantilla guardaba un array plano "ejercicios" en vez de "dias".
+      const ejerciciosViejos = Array.isArray(p.ejercicios) ? p.ejercicios : [];
+      p.dias = { dia1: { nombre: 'Día 1', ejercicios: ejerciciosViejos.map((e,i) => ({
+        id: e.id || ('ex-'+key+'-'+i), nombre: e.nombre || e.ex || 'Ejercicio', series: e.series || e.sets || '3',
+        reps: e.reps || '10-12', descanso: e.descanso || '60s', peso: e.peso || '', color: e.color || '',
+        video: e.video || '', grupo: e.grupo || ''
+      })) } };
+      delete p.ejercicios;
+    }else{
+      // Si tiene "dias" pero algún día vino sin ejercicios como array (dato corrupto), lo arreglamos.
+      Object.keys(p.dias).forEach(dk => {
+        if(!Array.isArray(p.dias[dk].ejercicios)) p.dias[dk].ejercicios = [];
+        p.dias[dk].nombre = p.dias[dk].nombre || dk;
+      });
+    }
+    p.cantidadDias = ordenarClavesDias(p.dias).length;
+  });
 }
 
 let plantillaTemporal = null;  // la plantilla completa (con días) que se está armando/editando
@@ -3339,6 +3501,7 @@ function editarPlantillaDesdeConfig(key){
   plantillaTemporal = JSON.parse(JSON.stringify(p));
   rutinaTemporalCambios = false;
   editandoEjercicio = null;
+  diasColapsados = new Set();
   // Si es una plantilla vieja con menos de 2 días, la completamos con días vacíos
   // para cumplir el mínimo (así el desplegable y el contenido real quedan sincronizados).
   const clavesActuales = ordenarClavesDias(plantillaTemporal.dias);
@@ -3408,15 +3571,22 @@ function renombrarDiaPlantilla(diaKey, input){
 }
 
 const COLORES_SUPERSET = [
-  { valor:'', label:'Sin color' },
-  { valor:'rojo', label:'🔴 Rojo' },
-  { valor:'amarillo', label:'🟡 Amarillo' },
-  { valor:'azul', label:'🔵 Azul' },
-  { valor:'verde', label:'🟢 Verde' },
-  { valor:'violeta', label:'🟣 Violeta' },
+  { valor:'amarillo', label:'● Amarillo' },
+  { valor:'azul', label:'● Azul' },
+  { valor:'verde', label:'● Verde' },
+  { valor:'rojo', label:'● Rojo' },
+  { valor:'', label:'○ Sin' },
 ];
 function hexParaColorSuperset(color){
-  return { rojo:'#e0574a', amarillo:'#e0a53f', azul:'#0049CD', verde:'#3fae6a', violeta:'#8a5cf6' }[color] || 'transparent';
+  return { rojo:'#e0574a', amarillo:'#e0a53f', azul:'#0049CD', verde:'#3fae6a' }[color] || 'transparent';
+}
+
+let diasColapsados = new Set();
+
+function toggleColapsoDia(diaKey){
+  if(diasColapsados.has(diaKey)) diasColapsados.delete(diaKey);
+  else diasColapsados.add(diaKey);
+  renderDiasPlantilla();
 }
 
 function renderDiasPlantilla(){
@@ -3424,19 +3594,23 @@ function renderDiasPlantilla(){
   const claves = ordenarClavesDias(plantillaTemporal.dias);
   cont.innerHTML = claves.map(dk => {
     const dia = plantillaTemporal.dias[dk];
+    const colapsado = diasColapsados.has(dk);
     return `
     <div class="card" style="padding:14px;">
-      <div style="display:flex;justify-content:space-between;align-items:center;gap:10px;margin-bottom:12px;">
+      <div style="display:flex;justify-content:space-between;align-items:center;gap:10px;${colapsado ? '' : 'margin-bottom:12px;'}">
+        <span style="cursor:pointer;font-size:.9rem;" onclick="toggleColapsoDia('${dk}')" title="${colapsado ? 'Expandir' : 'Colapsar'}">${colapsado ? '▶' : '▼'}</span>
         <input type="text" value="${dia.nombre}" oninput="renombrarDiaPlantilla('${dk}', this)" style="flex:1;font-weight:700;background:var(--black);border:1px solid rgba(242,237,228,.16);border-radius:8px;padding:8px;color:var(--off);">
+        <span style="font-size:.76rem;color:var(--off-dim);flex-shrink:0;">${(dia.ejercicios||[]).length} ejercicio${(dia.ejercicios||[]).length===1?'':'s'}</span>
         <span class="btn btn-ghost btn-small" onclick="borrarDiaPlantilla('${dk}')" title="Borrar día">🗑️</span>
       </div>
+      ${colapsado ? '' : `
       <div style="display:flex;flex-direction:column;gap:8px;margin-bottom:10px;">
         ${(dia.ejercicios||[]).map((e,i) => renderFilaEjercicioPlantilla(dk, e, i)).join('') || '<p style="font-size:.8rem;color:var(--off-dim);">Sin ejercicios todavía.</p>'}
       </div>
       <div style="position:relative;">
-        <span class="btn btn-ghost btn-small" onclick="toggleBuscadorEjercicioPlantilla('${dk}')">+ Agregar ejercicio</span>
-        <div id="epBuscador-${dk}" style="display:none;position:absolute;bottom:100%;left:0;right:0;z-index:20;background:var(--carbon);border:1px solid rgba(242,237,228,.2);border-radius:8px;margin-bottom:6px;max-height:220px;overflow-y:auto;box-shadow:0 -8px 24px rgba(0,0,0,.4);"></div>
-      </div>
+        <input type="text" id="epBuscarInput-${dk}" placeholder="Buscar ejercicio en el banco..." autocomplete="off" oninput="filtrarBanco('${dk}')" onfocus="filtrarBanco('${dk}')" style="margin-bottom:0;">
+        <div id="epBuscador-${dk}" style="display:none;position:absolute;top:100%;left:0;right:0;z-index:20;background:var(--carbon);border:1px solid rgba(242,237,228,.2);border-radius:8px;margin-top:4px;max-height:220px;overflow-y:auto;box-shadow:0 8px 24px rgba(0,0,0,.4);"></div>
+      </div>`}
     </div>`;
   }).join('');
 }
@@ -3445,35 +3619,33 @@ function renderFilaEjercicioPlantilla(diaKey, e, i){
   if(editandoEjercicio && editandoEjercicio.diaKey === diaKey && editandoEjercicio.index === i){
     return `
       <div class="card" style="padding:12px;border-left:4px solid ${hexParaColorSuperset(e.color)};">
-        <div class="grid grid-2" style="gap:8px;margin-bottom:8px;">
-          <input type="text" id="epEditNombre-${diaKey}-${i}" value="${e.nombre}" placeholder="Nombre del ejercicio">
-          <input type="text" id="epEditSeries-${diaKey}-${i}" value="${e.series}" placeholder="Series">
-        </div>
-        <div class="grid grid-3" style="gap:8px;margin-bottom:8px;">
-          <input type="text" id="epEditReps-${diaKey}-${i}" value="${e.reps}" placeholder="Reps">
-          <input type="text" id="epEditDescanso-${diaKey}-${i}" value="${e.descanso}" placeholder="Descanso">
-          <input type="text" id="epEditPeso-${diaKey}-${i}" value="${e.peso || ''}" placeholder="Peso (kg)">
-        </div>
         <div class="grid grid-2" style="gap:8px;margin-bottom:10px;">
-          <select id="epEditColor-${diaKey}-${i}" style="background:var(--black);border:1px solid rgba(242,237,228,.16);border-radius:8px;padding:8px;color:var(--off);">
-            ${COLORES_SUPERSET.map(c => `<option value="${c.valor}" ${e.color===c.valor?'selected':''}>${c.label}</option>`).join('')}
-          </select>
+          <input type="text" id="epEditNombre-${diaKey}-${i}" value="${e.nombre}" placeholder="Nombre del ejercicio">
           <input type="url" id="epEditVideo-${diaKey}-${i}" value="${e.video || ''}" placeholder="Link de YouTube (opcional)">
         </div>
         <span class="btn btn-solid btn-small" onclick="guardarEdicionEjercicioPlantilla('${diaKey}', ${i})">💾 Guardar</span>
       </div>`;
   }
   return `
-    <div class="card" style="padding:12px;display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap;border-left:4px solid ${hexParaColorSuperset(e.color)};">
-      <div>
-        <strong style="font-size:.9rem;">${e.nombre}</strong>
-        <p style="font-size:.78rem;color:var(--off-dim);margin-top:3px;">${e.series} series · ${e.reps} reps · descanso ${e.descanso}${e.peso ? ' · ' + e.peso + 'kg' : ''}${e.color ? ' · superset ' + e.color : ''}</p>
-      </div>
-      <div style="display:flex;gap:6px;flex-shrink:0;">
-        <span class="btn btn-ghost btn-small" onclick="editarEjercicioPlantilla('${diaKey}', ${i})">✏️ Editar</span>
-        <span class="btn btn-ghost btn-small" onclick="borrarEjercicioPlantilla('${diaKey}', ${i})">🗑️ Borrar</span>
-      </div>
+    <div class="card" style="padding:10px 12px;display:flex;align-items:center;gap:8px;flex-wrap:wrap;border-left:4px solid ${hexParaColorSuperset(e.color)};">
+      <strong style="font-size:.88rem;flex:1 1 140px;min-width:120px;">${e.nombre}</strong>
+      <input type="text" value="${e.series}" title="Series" onchange="actualizarCampoEjercicioInline('${diaKey}',${i},'series',this.value)" style="width:52px;padding:6px;font-size:.82rem;text-align:center;background:var(--black);border:1px solid rgba(242,237,228,.16);border-radius:6px;color:var(--off);">
+      <input type="text" value="${e.reps}" title="Repeticiones" onchange="actualizarCampoEjercicioInline('${diaKey}',${i},'reps',this.value)" style="width:64px;padding:6px;font-size:.82rem;text-align:center;background:var(--black);border:1px solid rgba(242,237,228,.16);border-radius:6px;color:var(--off);">
+      <input type="text" value="${e.descanso}" title="Descanso" onchange="actualizarCampoEjercicioInline('${diaKey}',${i},'descanso',this.value)" style="width:56px;padding:6px;font-size:.82rem;text-align:center;background:var(--black);border:1px solid rgba(242,237,228,.16);border-radius:6px;color:var(--off);">
+      <select title="Color de superset" onchange="actualizarCampoEjercicioInline('${diaKey}',${i},'color',this.value)" style="padding:6px;font-size:.8rem;background:var(--black);border:1px solid rgba(242,237,228,.16);border-radius:6px;color:var(--off);">
+        ${COLORES_SUPERSET.map(c => `<option value="${c.valor}" ${e.color===c.valor?'selected':''}>${c.label}</option>`).join('')}
+      </select>
+      <span class="btn btn-ghost btn-small" onclick="editarEjercicioPlantilla('${diaKey}', ${i})" title="Editar nombre / video">✏️</span>
+      <span class="btn btn-ghost btn-small" onclick="borrarEjercicioPlantilla('${diaKey}', ${i})" title="Borrar">🗑️</span>
     </div>`;
+}
+
+function actualizarCampoEjercicioInline(diaKey, index, campo, valor){
+  const ex = plantillaTemporal.dias[diaKey].ejercicios[index];
+  if(!ex) return;
+  ex[campo] = valor;
+  rutinaTemporalCambios = true;
+  if(campo === 'color') renderDiasPlantilla(); // reagrupa visualmente por el nuevo color
 }
 
 function editarEjercicioPlantilla(diaKey, index){
@@ -3483,15 +3655,11 @@ function editarEjercicioPlantilla(diaKey, index){
 
 function guardarEdicionEjercicioPlantilla(diaKey, index){
   const nombre = document.getElementById(`epEditNombre-${diaKey}-${index}`).value.trim();
-  const series = document.getElementById(`epEditSeries-${diaKey}-${index}`).value.trim();
-  const reps = document.getElementById(`epEditReps-${diaKey}-${index}`).value.trim();
-  const descanso = document.getElementById(`epEditDescanso-${diaKey}-${index}`).value.trim();
-  const peso = document.getElementById(`epEditPeso-${diaKey}-${index}`).value.trim();
-  const color = document.getElementById(`epEditColor-${diaKey}-${index}`).value;
   const video = document.getElementById(`epEditVideo-${diaKey}-${index}`).value.trim();
   if(!nombre){ alert('El ejercicio necesita un nombre.'); return; }
   const actual = plantillaTemporal.dias[diaKey].ejercicios[index];
-  plantillaTemporal.dias[diaKey].ejercicios[index] = { id: actual.id, nombre, series: series||'3', reps: reps||'10-12', descanso: descanso||'60s', peso: peso || '', color, video };
+  actual.nombre = nombre;
+  actual.video = video;
   rutinaTemporalCambios = true;
   editandoEjercicio = null;
   renderDiasPlantilla();
@@ -3508,33 +3676,43 @@ function borrarEjercicioPlantilla(diaKey, index){
 }
 
 function agregarEjercicioAPlantilla(diaKey, ejercicio){
-  plantillaTemporal.dias[diaKey].ejercicios.push(Object.assign({ id: 'ex-' + Date.now() + '-' + Math.random().toString(36).slice(2,6), peso:'', color:'', video:'' }, ejercicio));
+  plantillaTemporal.dias[diaKey].ejercicios.push(Object.assign({ id: 'ex-' + Date.now() + '-' + Math.random().toString(36).slice(2,6), peso:'', color:'', video:'', grupo:'' }, ejercicio));
   rutinaTemporalCambios = true;
+  const input = document.getElementById('epBuscarInput-' + diaKey);
+  if(input) input.value = '';
+  const panel = document.getElementById('epBuscador-' + diaKey);
+  if(panel) panel.style.display = 'none';
   renderDiasPlantilla();
 }
 
-function toggleBuscadorEjercicioPlantilla(diaKey){
+function filtrarBanco(diaKey){
   const panel = document.getElementById('epBuscador-' + diaKey);
-  const abierto = panel.style.display === 'block';
-  // Cerrar cualquier otro buscador abierto de otro día.
-  document.querySelectorAll('[id^="epBuscador-"]').forEach(p => p.style.display = 'none');
-  panel.style.display = abierto ? 'none' : 'block';
-  if(!abierto) renderBuscadorEjercicioPlantilla(diaKey);
+  const input = document.getElementById('epBuscarInput-' + diaKey);
+  if(!panel || !input) return;
+  const texto = input.value.trim().toLowerCase();
+  const coincidencias = texto ? EXERCISE_BANK.filter(e => e.name.toLowerCase().includes(texto)) : EXERCISE_BANK;
+  if(!coincidencias.length){
+    panel.innerHTML = `<p style="padding:12px;font-size:.8rem;color:var(--off-dim);">${texto ? 'Ningún ejercicio coincide con "' + texto + '".' : 'No hay ejercicios cargados todavía. Agregalos desde Configuración → Banco de ejercicios.'}</p>`;
+  }else{
+    panel.innerHTML = coincidencias.map(e => `
+      <div style="padding:10px 16px;cursor:pointer;display:flex;justify-content:space-between;" onmouseover="this.style.background='rgba(255,255,255,.06)'" onmouseout="this.style.background='transparent'"
+        onclick='agregarEjercicioAPlantilla(${JSON.stringify(diaKey)}, {nombre:${JSON.stringify(e.name)}, series:"3", reps:"10-12", descanso:"60s", video:${JSON.stringify(e.video||'')}})'>
+        <span>${e.name}</span><span style="color:var(--off-dim);font-size:.76rem;">${e.group||''}</span>
+      </div>`).join('');
+  }
+  panel.style.display = 'block';
 }
 
-function renderBuscadorEjercicioPlantilla(diaKey){
-  const panel = document.getElementById('epBuscador-' + diaKey);
-  const grupos = {};
-  EXERCISE_BANK.forEach(e => { (grupos[e.group || 'Otros'] = grupos[e.group || 'Otros'] || []).push(e); });
-  panel.innerHTML = Object.keys(grupos).map(g => `
-    <div style="padding:8px 12px;background:rgba(255,255,255,.05);font-size:.72rem;text-transform:uppercase;letter-spacing:.06em;color:var(--off-dim);font-weight:700;">${g}</div>
-    ${grupos[g].map(e => `
-      <div style="padding:10px 16px;cursor:pointer;" onmouseover="this.style.background='rgba(255,255,255,.06)'" onmouseout="this.style.background='transparent'"
-        onclick='agregarEjercicioAPlantilla(${JSON.stringify(diaKey)}, {nombre:${JSON.stringify(e.name)}, series:"3", reps:"10-12", descanso:"60s", video:${JSON.stringify(e.video||'')}}); document.getElementById(${JSON.stringify('epBuscador-'+diaKey)}).style.display="none";'>
-        ${e.name}
-      </div>`).join('')}
-  `).join('') || `<p style="padding:12px;font-size:.8rem;color:var(--off-dim);">No hay ejercicios cargados todavía. Agregalos desde Configuración → Banco de ejercicios.</p>`;
-}
+// Cierra cualquier buscador de ejercicios abierto si se hace click afuera.
+document.addEventListener('click', (e) => {
+  document.querySelectorAll('[id^="epBuscador-"]').forEach(panel => {
+    const diaKey = panel.id.replace('epBuscador-', '');
+    const input = document.getElementById('epBuscarInput-' + diaKey);
+    if(panel.style.display === 'block' && e.target !== input && !panel.contains(e.target)){
+      panel.style.display = 'none';
+    }
+  });
+});
 
 function parseDescansoASegundos(descanso){
   const n = parseInt(String(descanso).replace(/[^\d]/g,''), 10);
@@ -3840,11 +4018,15 @@ function promptMetodoPago(){
 }
 
 async function handleRenovarCuota(uid){
+  const s = ALUMNOS_REALES.find(a => a.id === uid);
+  if(!s.amount){
+    const seguir = confirm('Este alumno no tiene un monto de cuota cargado (o está en $0). ¿Registrar el pago igual? Te recomendamos primero ponerle un plan y monto arriba, en "Asignar plan y cuota".');
+    if(!seguir) return;
+  }
   const metodo = promptMetodoPago();
   if(!metodo) return;
   try{
     const DESCUENTO_EFECTIVO = 2000;
-    const s = ALUMNOS_REALES.find(a => a.id === uid);
     const hoyISO = new Date().toISOString();
     const precioLista = s.amount || 0;
     const descuentoAplicado = metodo === 'Efectivo' ? Math.min(DESCUENTO_EFECTIVO, precioLista) : 0;
@@ -4191,12 +4373,14 @@ function renderMiPerfil(){
     <div class="profile-head"><span class="avatar" style="background:${s.color};">${s.initials}</span>
       <div><h2>${s.name}</h2><span class="eyebrow" style="margin-bottom:0;">${s.plan} · ${s.membership}</span></div></div>
     <div class="grid grid-3">
-      <div class="card"><h4>Mis datos</h4>
+      <div class="card" id="miPerfilDatosCard"><h4>Mis datos</h4>
         <div class="field-row"><span>Edad</span><span>${s.age} años</span></div>
+        <div class="field-row"><span>DNI</span><span>${s.dni || 'Sin cargar'}</span></div>
         <div class="field-row"><span>Peso</span><span>${s.weight} kg</span></div>
         <div class="field-row"><span>Altura</span><span>${s.height} cm</span></div>
         <div class="field-row"><span>Objetivo</span><span>${s.goal}</span></div>
         <div class="field-row"><span>Ingreso</span><span>${s.joinDate}</span></div>
+        ${currentStudentReal ? '<button type="button" class="btn btn-ghost btn-small" style="margin-top:12px;width:100%;" onclick="mostrarEdicionMiPerfil()">✏️ Editar mis datos</button>' : ''}
       </div>
       <div class="card"><h4>Estado de membresía</h4>
         <div class="field-row"><span>Plan</span><span>${s.plan}</span></div>
@@ -4208,6 +4392,47 @@ function renderMiPerfil(){
         <div class="pbar"><div style="width:${s.completion}%;"></div></div>
       </div>
     </div>`;
+}
+
+function mostrarEdicionMiPerfil(){
+  const s = currentStudentReal;
+  if(!s) return;
+  document.getElementById('miPerfilDatosCard').innerHTML = `
+    <h4>Editar mis datos</h4>
+    <div style="margin-bottom:10px;"><label style="font-size:.76rem;color:var(--off-dim);">Edad</label><input type="number" id="mpEdad" value="${s.age || ''}" min="12" max="99" style="width:100%;background:var(--black);border:1px solid rgba(242,237,228,.16);border-radius:8px;padding:8px;color:var(--off);"></div>
+    <div style="margin-bottom:10px;"><label style="font-size:.76rem;color:var(--off-dim);">DNI</label><input type="text" id="mpDni" value="${s.dni || ''}" inputmode="numeric" style="width:100%;background:var(--black);border:1px solid rgba(242,237,228,.16);border-radius:8px;padding:8px;color:var(--off);"></div>
+    <div style="margin-bottom:10px;"><label style="font-size:.76rem;color:var(--off-dim);">Peso (kg)</label><input type="number" id="mpPeso" value="${s.weight || ''}" step="0.1" style="width:100%;background:var(--black);border:1px solid rgba(242,237,228,.16);border-radius:8px;padding:8px;color:var(--off);"></div>
+    <div style="margin-bottom:10px;"><label style="font-size:.76rem;color:var(--off-dim);">Altura (cm)</label><input type="number" id="mpAltura" value="${s.height || ''}" style="width:100%;background:var(--black);border:1px solid rgba(242,237,228,.16);border-radius:8px;padding:8px;color:var(--off);"></div>
+    <div style="margin-bottom:14px;"><label style="font-size:.76rem;color:var(--off-dim);">Objetivo</label>
+      <select id="mpObjetivo" style="width:100%;background:var(--black);border:1px solid rgba(242,237,228,.16);border-radius:8px;padding:8px;color:var(--off);">
+        ${['Pérdida de grasa','Ganancia muscular','Resistencia','Salud general'].map(g => `<option value="${g}" ${s.goal===g?'selected':''}>${g}</option>`).join('')}
+      </select>
+    </div>
+    <div class="auth-error" id="mpError" style="margin-bottom:10px;"></div>
+    <div style="display:flex;gap:8px;">
+      <button type="button" class="btn btn-solid btn-small" onclick="guardarMiPerfil()">Guardar</button>
+      <button type="button" class="btn btn-ghost btn-small" onclick="renderMiPerfil()">Cancelar</button>
+    </div>`;
+}
+
+async function guardarMiPerfil(){
+  const errorEl = document.getElementById('mpError');
+  const s = currentStudentReal;
+  const age = Number(document.getElementById('mpEdad').value) || s.age;
+  const dni = document.getElementById('mpDni').value.trim();
+  const weight = Number(document.getElementById('mpPeso').value) || s.weight;
+  const height = Number(document.getElementById('mpAltura').value) || s.height;
+  const goal = document.getElementById('mpObjetivo').value;
+  try{
+    const pesoCambio = weight !== s.weight;
+    const weightHistory = pesoCambio ? [...(s.weightHistory||[]), weight].slice(-30) : s.weightHistory;
+    await window.fb.setDoc(window.fb.doc(window.fb.db, 'users', s.id), { age, dni, weight, height, goal, weightHistory }, { merge: true });
+    s.age = age; s.dni = dni; s.weight = weight; s.height = height; s.goal = goal; s.weightHistory = weightHistory;
+    renderMiPerfil();
+    showToast('✅ Tus datos se actualizaron.', false);
+  }catch(err){
+    errorEl.textContent = 'No se pudo guardar (' + (err.code || err.message) + ').';
+  }
 }
 let currentMisRutinasDia = null;
 
